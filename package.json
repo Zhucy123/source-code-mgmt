@@ -1,7 +1,7 @@
 {
   "name": "source-code-mgmt",
-  "version": "1.0.1",
-  "description": "DSH plugin: source code management in the sidebar footer — env checks (git/gh), SSH ed25519 key setup, GitHub CLI web login, domestic SSH config, connectivity test, push / new private repo, and auto-ignore files over 100MB with per-file skipped reasons. Cross-platform (Windows / Linux / macOS).",
+  "version": "1.1.0",
+  "description": "DSH plugin: source code management in the sidebar footer — env checks (git/gh), SSH ed25519 key setup, GitHub/Gitee dual-platform (SSH config 443 + Gitee OpenAPI), connectivity test, push / new repo, and auto-ignore files over 100MB with per-file skipped reasons. Cross-platform (Windows / Linux / macOS).",
   "type": "module",
   "main": "lib/index.js",
   "exports": {

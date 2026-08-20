@@ -2,7 +2,7 @@
 
 > 版本：**v1.0.1**　|　更新日志见文末「[版本历史](#版本历史)」
 
-> DSH Web GUI 侧边栏插件：把「环境检查 → SSH 配置 → 代码上传推送」整合进左栏底部的「代码管理」按钮，一键管理 GitHub 仓库。
+> DSH Web GUI 侧边栏插件：把「环境检查 → SSH 配置 → 代码上传推送」整合进左栏底部的「代码管理」按钮，支持 GitHub / Gitee 双平台，一键管理代码仓库。
 
 ## 功能
 
@@ -15,27 +15,32 @@
 - 未安装时提示先安装 Git for Windows / GitHub CLI
 
 ### ② SSH 密钥与连接
+- **平台选择**：下拉选择代码托管平台 **GitHub（默认）** / **Gitee**，决定下面的 SSH 配置写入与连接测试目标
 - 检测本机 `~/.ssh/id_ed25519` 密钥是否存在
 - 一键**生成 ed25519 密钥**（无密码）
-- 一键**写入 SSH config**（`github.com → ssh.github.com:443` 端口，满足国内网络绕过 22 端口封锁）
-- **测试连接** `ssh -T git@github.com`
-- 显示公钥内容，方便复制上传到 GitHub
+- 一键**写入 SSH config**（GitHub：`github.com → ssh.github.com:443`；Gitee：`gitee.com` 443 端口；均为 443 端口满足国内网络绕过 22 端口封锁）
+- **测试连接** `ssh -T git@github.com`（GitHub）或 `ssh -T git@gitee.com`（Gitee）
+- 显示公钥内容，方便复制上传到对应平台
 - 检测 `gh` 是否已登录及账号
 
 ### ③ 代码管理
+- **跟随 ② 平台**：本区所有「检测/新建/可见性」逻辑随 ② 的平台选择切换（GitHub 走 `gh` CLI，Gitee 走 Gitee OpenAPI）
+- **Gitee 令牌**（仅 Gitee 模式显示）：输入 Gitee 私人访问令牌（需 `projects` 权限）→ 保存在本机 `~/.dsh/storages/source-code-mgmt-gitee.json`（0600，**不写入插件目录**、不回传到浏览器/日志）；可一键清除；令牌无效会自动清掉
 - **选择工作区**：下拉选择 DSH 已登记的工作区文件夹，选中即加载
 - **选择目录 →**：下拉右侧按钮，可手动输入/粘贴目录绝对路径或点击「浏览…」弹出原生文件夹选择器；确认后**持久化加入自定义目录列表**（插件独立存储于 `~/.dsh/storages/source-code-mgmt-dirs.json`，**不写入插件目录**，开源不泄漏个人路径），下次打开无需重新选择；手动添加的目录会以**自定义目录徽标**显示，末端带 **✕** 可一键删除该下拉记录（只删记录，不删实际文件夹）
-- 显示仓库状态：分支、远程地址、待提交改动数、领先/落后远程、>100MB 文件
+- 显示仓库状态：平台来源、分支、远程地址、待提交改动数、领先/落后远程、>100MB 文件
 - **查看详情**：有改动时「改动」行旁出现「查看」按钮 → 点击弹出窗口列出改动/新增/删除/重命名的**文件或文件夹名称**（只列名称不显示内容）；本地与远程存在差异时「同步」行旁出现「查看」按钮 → 点击弹出窗口显示**本地领先/落后的具体提交列表**；无改动或已一致时不显示按钮
-- **动态操作按钮**：根据本地与远程的相对状态自动显示——
+- **动态操作按钮**（git 操作平台无关，GitHub/Gitee 均可）：根据本地与远程的相对状态自动显示——
   - 只有本地有更改 → 只显示「推送更改」（`git add` + `commit` + `push`）
   - 只有远程有更新 → 只显示「拉取更新」（`git pull --ff-only`）
   - 本地和远程都有更新 → 显示三按钮：「拉取更新并推送更改」（`git pull --rebase` + `push`）、「强制推送」（`git push --force`，用本地覆盖远程）、「强制拉取」（`git pull --force`，并入远程更新）
   - 完全同步 → 显示「✓ 已是最新」
   - 有远程时额外提供「**强制对齐**」兜底按钮：`git fetch` + `git reset --hard origin/<branch>`，把本地**完全重置为远程状态**（丢弃本地差异），用于解决「本地与远程文件相同却仍显示同步差异」的情况
 - **创建 Git**：当所选目录**不是 git 仓库**但远程已存在同名仓库时显示该按钮，仅执行 `git init`（+设默认身份），**不拉取不推送**，由用户自行决定下一步是拉取还是推送
-- **新建仓库并推送**：默认以**文件夹名**为仓库名（只读不可改），可选**私有/公开**，`gh repo create --private|--public --source=. --push`；同名仓库已存在时**按钮禁用**并在下方提示「同名仓库已经创建」。若目录还是**全新的（尚无任何提交）**，会先自动 `git add` + 生成一个初始提交再创建，避免 `gh` 因「--push enabled but no commits found」而失败
-- **>100MB 文件处理**：自动识别超过 GitHub 100MB 单文件限制的文件——文件在一级子目录内则**忽略整个一级目录**（该文件夹为一整体），根目录独立文件则**忽略单个文件**；已存在于 `.gitignore` 的不重复添加，并显示「未上传原因」
+- **新建仓库并推送**：默认以**文件夹名**为仓库名（只读不可改），可选**私有/公开**；同名仓库已存在时**按钮禁用**并在下方提示「同名仓库已经创建」。若目录还是**全新的（尚无任何提交）**，会先自动 `git add` + 生成一个初始提交再创建，避免推送时报 "no commits found"
+  - GitHub：`gh repo create --private|--public --source=. --push`
+  - Gitee：用令牌调 Gitee OpenAPI `POST /user/repos` 建仓，再设置 SSH 远程 `git@gitee.com:<owner>/<name>.git` 并 `git push`（走 ② 已配的 SSH 密钥）
+- **>100MB 文件处理**：自动识别超过 100MB 单文件限制的文件——文件在一级子目录内则**忽略整个一级目录**（该文件夹为一整体），根目录独立文件则**忽略单个文件**；已存在于 `.gitignore` 的不重复添加，并显示「未上传原因」
 
 ### 预加载优化
 DSH 打开时自动预取环境/SSH/工作区/仓库状态，点开面板**直接秒显**，无需重新加载。
@@ -104,8 +109,8 @@ dsh web
 | `/api/source-code-mgmt/env` | GET | 环境检查（git/gh 版本） |
 | `/api/source-code-mgmt/ssh` | GET | SSH 密钥 / config / gh 登录状态 |
 | `/api/source-code-mgmt/gen-key` | POST | 生成 ed25519 密钥 |
-| `/api/source-code-mgmt/write-config` | POST | 写入 github.com SSH config |
-| `/api/source-code-mgmt/ssh-test` | POST | 测试 SSH 连接 |
+| `/api/source-code-mgmt/write-config` | POST | 写入 SSH config（body `provider`: `github` 默认 / `gitee`） |
+| `/api/source-code-mgmt/ssh-test` | POST | 测试 SSH 连接（body `provider`: `github` 默认 / `gitee`） |
 | `/api/source-code-mgmt/default-dir` | GET | 当前工作区目录 |
 | `/api/source-code-mgmt/workspaces` | GET | 列出所有工作区目录 + 自定义目录集合（DSH 工作区 + 插件自定义目录） |
 | `/api/source-code-mgmt/pick-dir` | POST | 宿主端弹出原生文件夹选择对话框，返回选中的路径 |
@@ -113,15 +118,16 @@ dsh web
 | `/api/source-code-mgmt/remove-workspace` | POST | 仅删除自定义目录的下拉记录（不删实际文件夹），返回更新后的列表 |
 | `/api/source-code-mgmt/align` | POST | 强制对齐：`git fetch` + `git reset --hard origin/<branch>`，本地完全重置为远程状态 |
 | `/api/source-code-mgmt/init-git` | POST | 仅 `git init` + 设置默认身份，不拉取不推送（由用户决定下一步） |
-| `/api/source-code-mgmt/repo-exists` | POST | 检测同名仓库是否存在 |
-| `/api/source-code-mgmt/repo?dir=` | GET | 获取仓库状态 |
-| `/api/source-code-mgmt/push` | POST | 提交并推送 |
+| `/api/source-code-mgmt/repo-exists` | POST | 检测同名仓库是否存在（body `provider`: `github`/`gitee`） |
+| `/api/source-code-mgmt/repo?dir=` | GET | 获取仓库状态（query `provider`: `github`/`gitee`） |
+| `/api/source-code-mgmt/push` | POST | 提交并推送（git 操作，平台无关） |
 | `/api/source-code-mgmt/pull` | POST | 从远程拉取更新（`git pull --ff-only`，已最新/成功/冲突反馈） |
 | `/api/source-code-mgmt/merge-push` | POST | 拉取并推送（`git pull --rebase` + `git push`，本地有更改且远程有更新时合并推送） |
 | `/api/source-code-mgmt/force-push` | POST | 强制推送（`git push --force`，覆盖远程为本地状态） |
 | `/api/source-code-mgmt/force-pull` | POST | 强制拉取（`git pull --force`，拉入远程更新） |
-| `/api/source-code-mgmt/create` | POST | 新建私有/公开仓库并推送 |
-| `/api/source-code-mgmt/set-visibility` | POST | 修改已有仓库的可见性（`gh repo edit --visibility private|public`） |
+| `/api/source-code-mgmt/create` | POST | 新建仓库并推送（body `provider`；GitHub 走 `gh repo create`，Gitee 走 OpenAPI + SSH push） |
+| `/api/source-code-mgmt/set-visibility` | POST | 修改仓库可见性（body `provider`；GitHub 走 `gh repo edit`，Gitee 走 `PATCH /repos/{owner}/{repo}`） |
+| `/api/source-code-mgmt/gitee-token` | GET/POST | GET：令牌是否已配置 + 账号；POST：保存（`{token}`）或清除（`{clear:true}`）Gitee 令牌 |
 
 ## 安全
 
@@ -152,7 +158,20 @@ pnpm add link:$(pwd)
 
 ## 版本历史
 
-### v1.0.1（当前）
+### v1.1.0（当前）
+本次更新：
+
+- **② SSH 新增平台选择**：在「② SSH 密钥与连接」顶部增加下拉选择代码托管平台 **GitHub（默认）** / **Gitee**
+  - 「配置 SSH(config)」按所选平台写入相应 443 端口配置（GitHub：`github.com → ssh.github.com:443`；Gitee：`gitee.com` 443）
+  - 「测试连接」按所选平台执行 `ssh -T git@github.com` / `ssh -T git@gitee.com`
+  - 「SSH 配置」状态行按所选平台分别显示 github / gitee 的配置情况，公钥上传提示文案也随平台切换
+- **③ 代码管理完整适配 Gitee**：③ 全部跟随 ② 的平台选择
+  - Gitee 模式走 **Gitee OpenAPI**（REST API + 私人令牌，`curl` 调用），令牌在 ③ 输入并保存到本机 `~/.dsh/storages/source-code-mgmt-gitee.json`（0600），可清除
+  - 同名仓库检测：Gitee `GET /repos/{owner}/{name}`；可见性读取/修改：Gitee `GET/PATCH /repos/{owner}/{name}`
+  - 新建仓库并推送：Gitee `POST /user/repos` 建仓 + SSH 远程 `git@gitee.com:<owner>/<name>.git` 推送
+  - 仓库状态行显示当前平台来源；推送/拉取/强制对齐等 git 操作平台无关照常可用
+
+### v1.0.1（历史）
 本次更新：
 
 - **「改动」详情查看**：「改动 N 个文件」旁新增「查看」按钮，点击弹出窗口列出改动的文件/新增的文件/文件夹名称（含状态标签：新增/修改/删除/重命名），只显示名称不显示具体内容；无改动时不显示该按钮
