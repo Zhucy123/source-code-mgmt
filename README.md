@@ -1,5 +1,7 @@
 # source-code-mgmt — DSH 源代码管理插件
 
+> 版本：**v1.0.0**　|　更新日志见文末「[版本历史](#版本历史)」
+
 > DSH Web GUI 侧边栏插件：把「环境检查 → SSH 配置 → 代码上传推送」整合进左栏底部的「代码管理」按钮，一键管理 GitHub 仓库。
 
 ## 功能
@@ -7,7 +9,7 @@
 集成在 **左侧边栏底部**（会话栏底部，通过 `sidebar.footer.action` 插槽），点击「代码管理」按钮打开面板，分三步：
 
 ### ① 环境检查
-- 显示**操作系统**（平台类型，如 `win32`）
+- 显示**操作系统**（美化名：`Windows` / `macOS` / `Linux`，对应底层 Node 平台标识 `win32` / `darwin` / `linux`）
 - 自动检测 **Git**、**GitHub CLI** 是否安装及版本（如 `git version 2.55.0`、`gh version 2.97.0`）
 - 检测 **SSH** 客户端是否可用（解析到可用 `ssh` 即显示「已找到」）
 - 未安装时提示先安装 Git for Windows / GitHub CLI
@@ -141,6 +143,23 @@ pnpm add link:$(pwd)
 
 - 改动 `lib/client.js`（浏览器端）→ 刷新页面即生效
 - 改动 `lib/index.js`（host/Node 端）→ 需重启 dsh web
+
+## 版本历史
+
+### v1.0.0（当前）
+**首发版本**，包含以下功能与修复：
+
+- 跨平台二进制自动探测：`git` / `gh` / `ssh` / `ssh-keygen` 按 ①环境变量覆盖 → ②PATH 查找 → ③（仅 Windows）Git 自带目录回退 自动定位，换设备无需额外配置，即使 `ssh` 不在 PATH 也能工作
+- 环境检查：显示操作系统（`Windows` / `macOS` / `Linux`）、Git、GitHub CLI、SSH 是否可用
+- SSH：密钥生成 / 写入 github.com 443 配置 / 测试连接 / 公钥展示 / gh 登录检测
+- 代码管理：工作区选择、动态操作按钮（推送 / 拉取更新 / 合并推送 / 强制推送 / 强制拉取 / 新建仓库并推送）
+- 修改已有仓库可见性（私有 ↔ 公开）
+- 新建仓库并推送：对无提交的全新目录自动生成初始提交，避免 `gh` 报 "no commits found"
+- >100MB 文件自动忽略（整目录或单文件）并显示未上传原因
+- 所有 API 均为 loopback-only，仅本机浏览器可访问
+
+### v1.0.1（待发布）
+更新日志将在此补充。（当前版本仍为 v1.0.0。）
 
 ## License
 
