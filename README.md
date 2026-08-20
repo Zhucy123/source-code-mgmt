@@ -21,7 +21,7 @@
 - 检测 `gh` 是否已登录及账号
 
 ### ③ 代码管理
-- **选择工作区**：下拉选择 DSH 已登记的工作区文件夹（如 `deepseek-harness` / `workspace` / `quiz-app`），选中即加载
+- **选择工作区**：下拉选择 DSH 已登记的工作区文件夹，选中即加载
 - **选择目录 →**：下拉右侧按钮，可手动输入/粘贴目录绝对路径或点击「浏览…」弹出原生文件夹选择器；确认后**持久化加入下拉列表**（插件独立存储于 `~/.dsh/storages/source-code-mgmt-dirs.json`），下次打开无需重新选择
 - 显示仓库状态：分支、远程地址、待提交改动数、领先/落后远程、>100MB 文件
 - **动态操作按钮**：根据本地与远程的相对状态自动显示——
@@ -61,11 +61,11 @@ dsh web
 
 ```bash
 cd ~/.dsh/profiles/web
-pnpm add git+https://github.com/你的用户名/source-code-mgmt.git
+pnpm add git+https://github.com/Zhucy123/source-code-mgmt.git
 dsh web
 ```
 
-### 方式三：从 npm 安装（如果已发布）
+### 方式三：从 npm 安装（暂未发布）
 
 ```bash
 cd ~/.dsh/profiles/web
@@ -75,7 +75,7 @@ dsh web
 
 ### 激活配置（可选）
 
-如果插件未自动出现在「插件市场 → 已安装」，在 `~/.dsh/profiles/web/cordis.patch.yml` 中添加 insert 条目：
+如果插件未自动出现在「dsh-market → 已安装」，在 `~/.dsh/profiles/web/cordis.patch.yml` 中添加 insert 条目：
 
 ```yaml
 - insert:
@@ -132,7 +132,7 @@ dsh web
 ## 开发
 
 ```bash
-git clone https://github.com/你的用户名/source-code-mgmt.git
+git clone https://github.com/Zhucy123/source-code-mgmt.git
 cd source-code-mgmt
 # 在本地 DSH 测试
 cd ~/.dsh/profiles/web
