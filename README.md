@@ -24,7 +24,7 @@
 
 ### ③ 代码管理
 - **选择工作区**：下拉选择 DSH 已登记的工作区文件夹，选中即加载
-- **选择目录 →**：下拉右侧按钮，可手动输入/粘贴目录绝对路径或点击「浏览…」弹出原生文件夹选择器；确认后**持久化加入下拉列表**（插件独立存储于 `~/.dsh/storages/source-code-mgmt-dirs.json`），下次打开无需重新选择
+- **选择目录 →**：下拉右侧按钮，可手动输入/粘贴目录绝对路径或点击「浏览…」弹出原生文件夹选择器；确认后**持久化加入自定义目录列表**（插件独立存储于 `~/.dsh/storages/source-code-mgmt-dirs.json`，**不写入插件目录**，开源不泄漏个人路径），下次打开无需重新选择；手动添加的目录会以**自定义目录徽标**显示，末端带 **✕** 可一键删除该下拉记录（只删记录，不删实际文件夹）
 - 显示仓库状态：分支、远程地址、待提交改动数、领先/落后远程、>100MB 文件
 - **查看详情**：有改动时「改动」行旁出现「查看」按钮 → 点击弹出窗口列出改动/新增/删除/重命名的**文件或文件夹名称**（只列名称不显示内容）；本地与远程存在差异时「同步」行旁出现「查看」按钮 → 点击弹出窗口显示**本地领先/落后的具体提交列表**；无改动或已一致时不显示按钮
 - **动态操作按钮**：根据本地与远程的相对状态自动显示——
@@ -32,6 +32,8 @@
   - 只有远程有更新 → 只显示「拉取更新」（`git pull --ff-only`）
   - 本地和远程都有更新 → 显示三按钮：「拉取更新并推送更改」（`git pull --rebase` + `push`）、「强制推送」（`git push --force`，用本地覆盖远程）、「强制拉取」（`git pull --force`，并入远程更新）
   - 完全同步 → 显示「✓ 已是最新」
+  - 有远程时额外提供「**强制对齐**」兜底按钮：`git fetch` + `git reset --hard origin/<branch>`，把本地**完全重置为远程状态**（丢弃本地差异），用于解决「本地与远程文件相同却仍显示同步差异」的情况
+- **创建 Git**：当所选目录**不是 git 仓库**但远程已存在同名仓库时显示该按钮，仅执行 `git init`（+设默认身份），**不拉取不推送**，由用户自行决定下一步是拉取还是推送
 - **新建仓库并推送**：默认以**文件夹名**为仓库名（只读不可改），可选**私有/公开**，`gh repo create --private|--public --source=. --push`；同名仓库已存在时**按钮禁用**并在下方提示「同名仓库已经创建」。若目录还是**全新的（尚无任何提交）**，会先自动 `git add` + 生成一个初始提交再创建，避免 `gh` 因「--push enabled but no commits found」而失败
 - **>100MB 文件处理**：自动识别超过 GitHub 100MB 单文件限制的文件——文件在一级子目录内则**忽略整个一级目录**（该文件夹为一整体），根目录独立文件则**忽略单个文件**；已存在于 `.gitignore` 的不重复添加，并显示「未上传原因」
 
@@ -105,9 +107,12 @@ dsh web
 | `/api/source-code-mgmt/write-config` | POST | 写入 github.com SSH config |
 | `/api/source-code-mgmt/ssh-test` | POST | 测试 SSH 连接 |
 | `/api/source-code-mgmt/default-dir` | GET | 当前工作区目录 |
-| `/api/source-code-mgmt/workspaces` | GET | 列出所有工作区目录（DSH 工作区 + 插件自定义目录） |
+| `/api/source-code-mgmt/workspaces` | GET | 列出所有工作区目录 + 自定义目录集合（DSH 工作区 + 插件自定义目录） |
 | `/api/source-code-mgmt/pick-dir` | POST | 宿主端弹出原生文件夹选择对话框，返回选中的路径 |
 | `/api/source-code-mgmt/add-workspace` | POST | 校验目录存在并持久化加入插件自定义目录列表，返回合并后的工作区列表 |
+| `/api/source-code-mgmt/remove-workspace` | POST | 仅删除自定义目录的下拉记录（不删实际文件夹），返回更新后的列表 |
+| `/api/source-code-mgmt/align` | POST | 强制对齐：`git fetch` + `git reset --hard origin/<branch>`，本地完全重置为远程状态 |
+| `/api/source-code-mgmt/init-git` | POST | 仅 `git init` + 设置默认身份，不拉取不推送（由用户决定下一步） |
 | `/api/source-code-mgmt/repo-exists` | POST | 检测同名仓库是否存在 |
 | `/api/source-code-mgmt/repo?dir=` | GET | 获取仓库状态 |
 | `/api/source-code-mgmt/push` | POST | 提交并推送 |
