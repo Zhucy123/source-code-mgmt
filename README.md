@@ -47,33 +47,57 @@ DSH 打开时自动预取环境/SSH/工作区/仓库状态，点开面板**直�
 
 ## 安装
 
+### 关键前提：安装 ≠ 激活
+
+`pnpm add`（无论是 `link:`、`git+` 还是 npm）只会把插件写进 profile 的 `package.json` 依赖和 `node_modules`，**并不会自动把插件注册进 Cordis loader 树**。要让左栏底部出现「代码管理」按钮，**还必须激活它**（见下方「激活配置（安装后必做）」）+ **完全重启 dsh web**。这也是 dsh-update 等本地插件共用的激活方式。
+
 ### 方式一：从本地目录安装（开发/测试）
 
 **Windows (PowerShell):**
 
 ```powershell
+# 1. 进入你的 DSH profile 目录
 cd ~/.dsh/profiles/web
+
+# 2. 用 link 协议添加插件（指向本地源码绝对路径），会建立符号链接
 pnpm add link:C:/path/to/source-code-mgmt
+
+# 3. 激活插件：在 ~/.dsh/profiles/web/cordis.patch.yml 追加 insert 条目（见下）
+# 4. 完全重启 dsh web（先停旧进程再启动，刷新页面不生效）
 dsh web
 ```
 
 **Linux / macOS:**
 
 ```bash
+# 1. 进入你的 DSH profile 目录
 cd ~/.dsh/profiles/web
+
+# 2. 链接到插件源码目录（符号链接）
 pnpm add link:/home/yourname/path/to/source-code-mgmt
+
+# 3. 激活插件：在 ~/.dsh/profiles/web/cordis.patch.yml 追加 insert 条目
+# 4. 完全重启 dsh web（先停旧进程再启动）
 dsh web
 ```
 
-### 方式二：从 GitHub 安装
+### 方式二：从 GitHub 安装（分发场景）
 
 **Windows / Linux / macOS 通用:**
 
 ```bash
+# 1. 进入你的 DSH profile 目录
 cd ~/.dsh/profiles/web
+
+# 2. 从 GitHub 安装插件（实际下载源码到 node_modules）
 pnpm add git+https://github.com/Zhucy123/source-code-mgmt.git
+
+# 3. 激活插件：在 ~/.dsh/profiles/web/cordis.patch.yml 追加 insert 条目（见下）
+# 4. 完全重启 dsh web（先停旧进程再启动）
 dsh web
 ```
+
+> 方式二装完同样**不会自动激活**，必须做第 3 步的激活；且它是**实际拷贝**到 node_modules，改动源码需重新 `pnpm add` 拉取（不像 `link:` 是符号链接、改源码即生效）。
 
 ### 方式三：从 npm 安装（暂未发布）
 
@@ -83,9 +107,11 @@ pnpm add source-code-mgmt
 dsh web
 ```
 
-### 激活配置（可选）
+> 方式三安装完成后，同样需要激活（`cordis.patch.yml` 条目）+ 完全重启，按钮才会出现。
 
-如果插件未自动出现在「dsh-market → 已安装」，在 `~/.dsh/profiles/web/cordis.patch.yml` 中添加 insert 条目：
+### 激活配置（安装后必做）
+
+插件**不会**因为 `pnpm add` 就自动出现在侧边栏。请在 `~/.dsh/profiles/web/cordis.patch.yml` 中添加 insert 条目（若文件已有其他插件的 insert，照格式并列添加即可）：
 
 ```yaml
 - insert:
@@ -93,7 +119,42 @@ dsh web
       name: 'source-code-mgmt'
 ```
 
-安装后重启 dsh web，然后浏览器 **F5 刷新**，左栏底部即出现「代码管理」按钮。
+保存后**完全重启 dsh web**（不是刷新页面，而是要停掉旧进程后重新启动），然后浏览器 **F5 刷新**，左栏底部即出现「代码管理」按钮。
+
+> 用命令直接追加（幂等，已存在则跳过）——PowerShell：
+> ```powershell
+> $patch = "$HOME\.dsh\profiles\web\cordis.patch.yml"
+> $addLines = "`n# Activate the source-code-mgmt plugin (installed as a profile dependency).`n- insert:`n    - id: source-code-mgmt`n      name: 'source-code-mgmt'`n"
+> $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+> if (Test-Path $patch) {
+>     $content = [System.IO.File]::ReadAllText($patch)
+>     if ($content -notmatch 'source-code-mgmt') {
+>         [System.IO.File]::AppendAllText($patch, $addLines, $utf8NoBom)
+>         Write-Host "OK: 已追加 source-code-mgmt 激活条目" -ForegroundColor Green
+>     } else {
+>         Write-Host "SKIP: cordis.patch.yml 已包含 source-code-mgmt" -ForegroundColor Yellow
+>     }
+> } else {
+>     Write-Host "ERROR: 未找到 $patch" -ForegroundColor Red
+> }
+> ```
+
+### 验证安装是否成功
+
+安装 + 激活 + 重启后，可以核对以下几点：
+
+1. **依赖已写入**：`~/.dsh/profiles/web/package.json` 的 `dependencies` 里应有 `source-code-mgmt`。
+2. **符号链接已建立（`link:` 方式）**：`~/.dsh/profiles/web/node_modules/source-code-mgmt` 指向源码目录（Windows 显示为 Junction）。
+3. **激活条目已添加**：`~/.dsh/profiles/web/cordis.patch.yml` 里有 `source-code-mgmt` 的 insert 条目。
+4. **重启后按钮可见**：左栏底部出现「代码管理」按钮，点开可看到预加载的 ①②③ 面板而非报错。
+
+### 常见排障
+
+| 现象 | 原因 / 处理 |
+|------|------------|
+| 已 `pnpm add` 并重启，但按钮不出现 | 最常见：没在 `cordis.patch.yml` 里激活。补上 insert 条目后**完全重启**（不是刷新）。 |
+| 改了 `cordis.patch.yml` 但仍不出现 | 服务未真正重启——旧进程还占着 3080 端口。停掉旧 `dsh web` 进程再启动。 |
+| 出现「Failed to load plugins」 | 插件 host 端 `index.js` 启动报错（多为依赖解析问题）。查看启动日志，确认 `node_modules` 依赖已装齐。 |
 
 ## 使用步骤
 
