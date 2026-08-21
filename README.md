@@ -99,7 +99,17 @@ dsh web
 
 > 方式二装完同样**不会自动激活**，必须做第 3 步的激活；且它是**实际拷贝**到 node_modules，改动源码需重新 `pnpm add` 拉取（不像 `link:` 是符号链接、改源码即生效）。
 
-### 方式三：从 npm 安装（暂未发布）
+### 方式三：从 npm 安装（已发布 ✓）
+
+**最省事的方式**——只需一条命令，且不用先进 profile 目录，推荐给普通使用者。
+
+**在任意目录执行：**
+```bash
+# 用 DSH 自带的插件命令（自动定位/初始化 web profile）
+dsh plugin --profile web add source-code-mgmt
+```
+
+或者等价地手动操作：
 
 ```bash
 cd ~/.dsh/profiles/web
@@ -107,7 +117,7 @@ pnpm add source-code-mgmt
 dsh web
 ```
 
-> 方式三安装完成后，同样需要激活（`cordis.patch.yml` 条目）+ 完全重启，按钮才会出现。
+> 说明：`dsh plugin --profile web add <包名>` 本质是「在 web profile 目录里执行 `pnpm add <包名>`」并顺带对账插件层，比手动 `cd` 更省心。但它**同样不会自动把插件激活**（不会替你写 `cordis.patch.yml` 的 insert 条目），所以装完后仍需要下面「激活配置」里的步骤 + 完全重启。
 
 ### 激活配置（安装后必做）
 
