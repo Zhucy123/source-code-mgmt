@@ -51,55 +51,7 @@ DSH 打开时自动预取环境/SSH/工作区/仓库状态，点开面板**直�
 
 `pnpm add`（无论是 `link:`、`git+` 还是 npm）只会把插件写进 profile 的 `package.json` 依赖和 `node_modules`，**并不会自动把插件注册进 Cordis loader 树**。要让左栏底部出现「代码管理」按钮，**还必须激活它**（见下方「激活配置（安装后必做）」）+ **完全重启 dsh web**。这也是 dsh-update 等本地插件共用的激活方式。
 
-### 方式一：从本地目录安装（开发/测试）
-
-**Windows (PowerShell):**
-
-```powershell
-# 1. 进入你的 DSH profile 目录
-cd ~/.dsh/profiles/web
-
-# 2. 用 link 协议添加插件（指向本地源码绝对路径），会建立符号链接
-pnpm add link:C:/path/to/source-code-mgmt
-
-# 3. 激活插件：在 ~/.dsh/profiles/web/cordis.patch.yml 追加 insert 条目（见下）
-# 4. 完全重启 dsh web（先停旧进程再启动，刷新页面不生效）
-dsh web
-```
-
-**Linux / macOS:**
-
-```bash
-# 1. 进入你的 DSH profile 目录
-cd ~/.dsh/profiles/web
-
-# 2. 链接到插件源码目录（符号链接）
-pnpm add link:/home/yourname/path/to/source-code-mgmt
-
-# 3. 激活插件：在 ~/.dsh/profiles/web/cordis.patch.yml 追加 insert 条目
-# 4. 完全重启 dsh web（先停旧进程再启动）
-dsh web
-```
-
-### 方式二：从 GitHub 安装（分发场景）
-
-**Windows / Linux / macOS 通用:**
-
-```bash
-# 1. 进入你的 DSH profile 目录
-cd ~/.dsh/profiles/web
-
-# 2. 从 GitHub 安装插件（实际下载源码到 node_modules）
-pnpm add git+https://github.com/Zhucy123/source-code-mgmt.git
-
-# 3. 激活插件：在 ~/.dsh/profiles/web/cordis.patch.yml 追加 insert 条目（见下）
-# 4. 完全重启 dsh web（先停旧进程再启动）
-dsh web
-```
-
-> 方式二装完同样**不会自动激活**，必须做第 3 步的激活；且它是**实际拷贝**到 node_modules，改动源码需重新 `pnpm add` 拉取（不像 `link:` 是符号链接、改源码即生效）。
-
-### 方式三：从 npm 安装（已发布 ✓）
+### 方式一：从 npm 官方包安装（推荐）
 
 **最省事的方式**——只需一条命令，且不用先进 profile 目录，推荐给普通使用者。
 
@@ -117,7 +69,7 @@ pnpm add source-code-mgmt
 dsh web
 ```
 
-> 说明：`dsh plugin --profile web add <包名>` 本质是「在 web profile 目录里执行 `pnpm add <包名>`」并顺带对账插件层，比手动 `cd` 更省心。但它**同样不会自动把插件激活**（不会替你写 `cordis.patch.yml` 的 insert 条目），所以装完后仍需要下面「激活配置」里的步骤 + 完全重启。
+> 说明：`dsh plugin --profile web add <包名>` 本质是「在 web profile 目录里执行 `pnpm add <包名>`」并顺带对账插件层，比手动 `cd` 更省心。但它**同样不会自动把插件激活**（不会替你写 `cordis.patch.yml` 的 insert 条目），所以装完后仍需下面「激活配置」里的步骤 + 完全重启。
 
 ### 激活配置（安装后必做）
 
@@ -149,6 +101,51 @@ dsh web
 > }
 > ```
 
+### 方式二：从本地目录安装（开发/测试）
+
+**Windows (PowerShell):**
+
+```powershell
+# 1. 进入你的 DSH profile 目录
+cd ~/.dsh/profiles/web
+
+# 2. 用 link 协议添加插件（指向本地源码绝对路径），会建立符号链接
+pnpm add link:C:/path/to/source-code-mgmt
+
+# 3. 激活插件：同上（见上方「激活配置」；追加 insert 条目后完全重启）
+dsh web
+```
+
+**Linux / macOS:**
+
+```bash
+# 1. 进入你的 DSH profile 目录
+cd ~/.dsh/profiles/web
+
+# 2. 链接到插件源码目录（符号链接）
+pnpm add link:/home/yourname/path/to/source-code-mgmt
+
+# 3. 激活插件：同上（见上方「激活配置」；追加 insert 条目后完全重启）
+dsh web
+```
+
+### 方式三：从 GitHub 安装（分发场景）
+
+**Windows / Linux / macOS 通用:**
+
+```bash
+# 1. 进入你的 DSH profile 目录
+cd ~/.dsh/profiles/web
+
+# 2. 从 GitHub 安装插件（实际下载源码到 node_modules）
+pnpm add git+https://github.com/Zhucy123/source-code-mgmt.git
+
+# 3. 激活插件：同上（见上方「激活配置」；追加 insert 条目后完全重启）
+dsh web
+```
+
+> 方式三装完同样**不会自动激活**（激活方式同方式一）；且它是**实际拷贝**到 node_modules，改动源码需重新 `pnpm add` 拉取（不像 `link:` 是符号链接、改源码即生效）。
+
 ### 验证安装是否成功
 
 安装 + 激活 + 重启后，可以核对以下几点：
@@ -156,7 +153,7 @@ dsh web
 1. **依赖已写入**：`~/.dsh/profiles/web/package.json` 的 `dependencies` 里应有 `source-code-mgmt`。
 2. **符号链接已建立（`link:` 方式）**：`~/.dsh/profiles/web/node_modules/source-code-mgmt` 指向源码目录（Windows 显示为 Junction）。
 3. **激活条目已添加**：`~/.dsh/profiles/web/cordis.patch.yml` 里有 `source-code-mgmt` 的 insert 条目。
-4. **重启后按钮可见**：左栏底部出现「代码管理」按钮，点开可看到预加载的 ①②③ 面板而非报错。
+4. **重启后按钮可见**：左栏底部出现「代码管理」按钮。
 
 ### 常见排障
 
