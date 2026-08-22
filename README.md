@@ -1,6 +1,6 @@
 # source-code-mgmt — DSH 源代码管理插件
 
-> 版本：**v1.2.0**　|　更新日志见文末「[版本历史](#版本历史)」
+> 版本：**v1.5.0**　|　更新日志见文末「[版本历史](#版本历史)」
 
 > DSH Web GUI 源代码管理插件：把「环境检查 → SSH 配置 → 代码上传推送」整合进「代码管理」面板，支持 GitHub / Gitee 双平台，一键管理代码仓库。
 
@@ -21,12 +21,12 @@
 - 显示**操作系统**（美化名：`Windows` / `macOS` / `Linux`，对应底层 Node 平台标识 `win32` / `darwin` / `linux`）
 - 自动检测 **Git**、**GitHub CLI** 是否安装及版本（如 `git version 2.55.0`、`gh version 2.97.0`）
 - 检测 **SSH** 客户端是否可用（解析到可用 `ssh` 即显示「已找到」）
-- 未安装时提示先安装 Git for Windows / GitHub CLI
+- **缺工具时给安装指引 + 一键安装**：某工具未找到时，该行显示「❌ 未安装」+「**复制安装命令**」+「**安装**」按钮——「安装」走 host 自动选包管理器执行（Windows 用 winget / 内置功能、macOS 用 brew、Linux 用 apt/dnf/pacman，可能需管理员权限），安装后自动重新检测；也可点「复制安装命令」手动执行
 
 ### ② SSH 密钥与连接
 - **平台选择**：下拉选择代码托管平台 **GitHub（默认）** / **Gitee**，决定下面的 SSH 配置写入与连接测试目标
-- 检测本机 `~/.ssh/id_ed25519` 密钥是否存在
-- 一键**生成 ed25519 密钥**（无密码）
+- **自动探测 ed25519 密钥**：扫描 `~/.ssh/*.pub` 中已存在的 ed25519 公钥——**优先用 `id_ed25519`**；否则用找到的第一个（支持任意命名的密钥，如 `github_ed25519`）；都没有则默认名 `id_ed25519`。状态行显示**实际检测到的密钥文件名**，SSH config 的 `IdentityFile` 也用它
+- 一键**生成 ed25519 密钥**（无密码；本地已有 ed25519 密钥时复用，不会重复生成）
 - 一键**写入 SSH config**（GitHub：`github.com → ssh.github.com:443`；Gitee：`gitee.com` 443 端口；均为 443 端口满足国内网络绕过 22 端口封锁）
 - **测试连接** `ssh -T git@github.com`（GitHub）或 `ssh -T git@gitee.com`（Gitee）
 - 显示公钥内容，方便复制上传到对应平台
@@ -38,7 +38,12 @@
 - **选择工作区**：下拉选择 DSH 已登记的工作区文件夹，选中即加载
 - **选择目录 →**：下拉右侧按钮，可手动输入/粘贴目录绝对路径或点击「浏览…」弹出原生文件夹选择器；确认后**持久化加入自定义目录列表**（插件独立存储于 `~/.dsh/storages/source-code-mgmt-dirs.json`，**不写入插件目录**，开源不泄漏个人路径），下次打开无需重新选择；手动添加的目录会以**自定义目录徽标**显示，末端带 **✕** 可一键删除该下拉记录（只删记录，不删实际文件夹）
 - 显示仓库状态：平台来源、分支、远程地址、待提交改动数、领先/落后远程、>100MB 文件
-- **查看详情**：有改动时「改动」行旁出现「查看」按钮 → 点击弹出窗口列出改动/新增/删除/重命名的**文件或文件夹名称**；对已跟踪的改动（修改/删除/新增）可**点击文件行展开查看内容 diff**——删除行红色带 `-`、新增行绿色带 `+`、上下文为灰色（untracked 新文件无 diff，只列名称）；本地与远程存在差异时「同步」行旁出现「查看」按钮 → 点击弹出窗口显示**本地领先/落后的具体提交列表**；无改动或已一致时不显示按钮
+- **查看详情**：有改动时「改动」行旁出现「查看」按钮 → 点击弹出窗口列出改动/新增/删除/重命名的**文件或文件夹名称**；对已跟踪的改动（修改/删除/新增）可**点击文件行展开查看内容 diff**——**并排视图**（左旧右新，删除行红底、新增行绿底），untracked 新文件无 diff 只列名称；本地与远程存在差异时「同步」行旁出现「查看」按钮 → 点击弹出窗口显示**本地领先/落后的具体提交列表**；无改动或已一致时不显示按钮
+- **本地 Git 工作流**（不改动远程同步逻辑）：
+  - 「改动」弹窗里每个文件行有**暂存 / 取消暂存**按钮（按 `git status` 的 XY 状态区分 staged/unstaged），并显示「已暂存 / 未暂存」标记
+  - ③ 面板仓库名上方有**提交信息输入框 + 「提交」按钮**（仅 git 仓库且有改动时显示）——可写自定义提交信息，**不再用固定 message**；留空则自动生成
+  - 「分支」行旁有**「切换」**按钮 → 弹窗列出分支，点选即 `checkout`
+  - 「分支」行旁有**「历史」**按钮 → 弹窗列出提交（hash+subject+author+date），每条可**查看**（并排 diff）、**revert**、**cherry-pick**（后两者带确认框，因为会改写历史）
 - **远程按平台 + 当前账号匹配**：③ 的「远程 / 同步」只认「属于当前平台的远程」**且 owner 等于当前登录账号**（GitHub 平台 = `gh` 账号如 `Zhucy123` 名下，Gitee 平台 = Gitee 令牌账号如 `Zhucy2100` 名下）。这样：
   - 切到 Gitee 时不读 GitHub 的 origin，只读 gitee.com 的远程；
   - github.com 上**属于别人/其他组织**的仓库（如 `deepseek-ai/deepseek-harness`）不会被当作「用户自己的远程」显示，ahead/behind 也不对它计算；
@@ -182,6 +187,7 @@ dsh web
 | 路由 | 方法 | 说明 |
 |------|------|------|
 | `/api/source-code-mgmt/env` | GET | 环境检查（git/gh 版本） |
+| `/api/source-code-mgmt/install-tool` | POST | 一键安装缺失工具（body `tool`: `git`/`gh`/`ssh`，按平台自动选包管理器） |
 | `/api/source-code-mgmt/ssh` | GET | SSH 密钥 / config / gh 登录状态 |
 | `/api/source-code-mgmt/gen-key` | POST | 生成 ed25519 密钥 |
 | `/api/source-code-mgmt/write-config` | POST | 写入 SSH config（body `provider`: `github` 默认 / `gitee`） |
@@ -195,6 +201,16 @@ dsh web
 | `/api/source-code-mgmt/init-git` | POST | 仅 `git init` + 设置默认身份，不拉取不推送（由用户决定下一步） |
 | `/api/source-code-mgmt/repo-exists` | POST | 检测同名仓库是否存在（body `provider`: `github`/`gitee`） |
 | `/api/source-code-mgmt/repo?dir=` | GET | 获取仓库状态（query `provider`: `github`/`gitee`） |
+| `/api/source-code-mgmt/repo-diff?dir=&path=` | GET | 按需返回单个改动文件的 unified diff 文本 |
+| `/api/source-code-mgmt/stage` | POST | 暂存改动（body `dir`、`path`；`path` 空=全部） |
+| `/api/source-code-mgmt/unstage` | POST | 取消暂存（body `dir`、`path`；`path` 空=全部） |
+| `/api/source-code-mgmt/commit` | POST | 用自定义信息提交（body `dir`、`message`、`paths?`；沿用 pushFlow 的无身份兜底逻辑） |
+| `/api/source-code-mgmt/branches` | POST | 列出分支（当前分支在前） |
+| `/api/source-code-mgmt/checkout` | POST | 切换分支（body `dir`、`branch`） |
+| `/api/source-code-mgmt/log` | POST | 最近提交历史（body `dir`、`count?`，返回 hash/subject/author/date） |
+| `/api/source-code-mgmt/revert` | POST | revert 某提交（body `dir`、`hash`） |
+| `/api/source-code-mgmt/cherrypick` | POST | cherry-pick 某提交（body `dir`、`hash`） |
+| `/api/source-code-mgmt/commit-diff` | POST | 返回某提交的完整 patch（body `dir`、`hash`） |
 | `/api/source-code-mgmt/push` | POST | 提交并推送（git 操作，平台无关） |
 | `/api/source-code-mgmt/pull` | POST | 从远程拉取更新（`git pull --ff-only`，已最新/成功/冲突反馈） |
 | `/api/source-code-mgmt/merge-push` | POST | 拉取并推送（`git pull --rebase` + `git push`，本地有更改且远程有更新时合并推送） |
@@ -212,11 +228,12 @@ dsh web
 
 - **Windows / Linux / macOS 通用**
 - 用 `process.platform` 检测平台
-- `~/.ssh` 通过 `homedir()` 定位（Windows: `C:\Users\用户名\ .ssh`，Linux: `/home/用户名/.ssh`）
+- `~/.ssh` 通过 `homedir()` 定位（Windows: `C:\Users\用户名\ .ssh`，Linux/macOS: `/home/用户名/.ssh` 或 `/Users/用户名/.ssh`）
 - Linux/macOS 下 SSH config 自动设 0600 权限
 - **git / gh / ssh / ssh-keygen 二进制自动探测**：启动时依次按 ①环境变量覆盖 → ②PATH 查找（Windows 加 `.exe`）→（仅 Windows）③Git 自带目录（`usr\bin` / `bin`）回退，最后兜底用裸命令名。因此只要装了 Git，即使 `ssh` 不在 PATH 里也能正常工作，换设备无需额外配置。
 - 如需手动指定二进制路径，可用环境变量覆盖：`DSH_SCM_GIT` / `DSH_SCM_GH` / `DSH_SCM_SSH` / `DSH_SCM_SSH_KEYGEN`
 - **SSH 传输修复**：Git for Windows 自带的 MSYS `ssh.exe`（`usr\bin\ssh.exe`）在被 detached/agent 进程调用时可能报 `couldn't create signal pipe, Win32 error 5`，导致 `git push`/`git pull` 失败。插件执行 git 远程命令时会自动注入 `GIT_SSH` 指向解析到的可用 `ssh`（通常为系统 OpenSSH `C:\Windows\System32\OpenSSH\ssh.exe`），避免该问题。
+- **缺工具一键安装跨平台**：Windows 用 winget / 内置功能（回退 choco/scoop），macOS 用 brew，Linux 用 apt-get / dnf / pacman（自动带 `sudo -n`；已是 root 则省略）。SSH 密钥探测、本地 Git 工作流、并排 diff 等在三个平台行为一致；「浏览目录」的原生选择器仅 Windows 可用，macOS/Linux 上请在输入框直接填路径（可手动输入粘贴）。
 
 ## 开发
 
@@ -233,14 +250,39 @@ pnpm add link:$(pwd)
 
 ## 版本历史
 
-### v1.2.0（当前）
+### v1.5.0（当前）
+本次更新：
+
+- **① 环境检查缺工具一键安装**：某个工具（git / gh / ssh）未检测到时，该行显示「❌ 未安装」+「复制安装命令」+「**安装**」按钮——「安装」由 host 自动选包管理器执行（Windows winget / 内置功能、macOS brew、Linux apt/dnf/pacman），安装后自动重新检测；host 新增 `POST /install-tool` 路由（best-effort，回传执行命令与输出）
+- **修复切换平台后 ③ 未刷新**：仓库状态缓存按目录 + 平台区分，② 切换 GitHub / Gitee 后 ③ 会重新拉取对应平台的检测内容，不再残留上一个平台的「远程/同步/同名校验」结果；拉取期间显示「⟳ 切换平台，正在重新检测…」提示，避免旧内容停留几秒让用户误以为没变化
+- **macOS / Linux 适配修复**：Linux 缺工具一键安装自动带 `sudo -n`（已是 root 则省略，避免权限失败挂起）；`decodeSessionDir` 按平台区分 Windows 盘符路径与 POSIX 绝对路径，macOS / Linux 下也能正确从 session 目录还原工作区
+
+### v1.4.0（历史）
+本次更新：
+
+- **SSH 密钥自动探测**：扫描 `~/.ssh/*.pub` 中的 ed25519 公钥——优先用 `id_ed25519`，否则用找到的第一个（支持任意命名密钥）；都没有才用默认名 `id_ed25519` 新建。② 状态行显示实际检测到的密钥名，SSH config 的 `IdentityFile` 也用它，有自定义命名密钥也能正确识别、配置并推送
+
+### v1.3.0（历史）
+本次更新（补齐本地 Git 工作流，未改动远程同步逻辑）：
+
+- **② SSH 默认折叠 + 标题行切平台**：② SSH 部分默认折叠，标题行内嵌「平台」下拉（折叠时也能切），切换后自动展开该部分以继续配置，③ 跟随平台
+
+- **选择性暂存 + 自定义提交信息**：「改动」弹窗每个文件行新增**暂存 / 取消暂存**按钮（按 `git status --porcelain` 的 XY 状态区分 staged/unstaged），并显示「已暂存 / 未暂存」；③ 面板仓库名上方新增**提交信息输入框 + 「提交」按钮**，提交不再用固定 `chore: update workspace via DSH...`（留空则自动生成基于文件夹名的信息）；沿用 `pushFlow` 的无身份兜底逻辑
+- **分支切换 + 提交历史 + revert / cherry-pick**：「分支」行旁新增「切换」（弹窗列出分支，点选 `checkout`）与「历史」（弹窗列出提交，每条可「查看」「revert」「cherry-pick」——后两者带确认框）
+- **真·并排 diff**：把 unified diff 解析成（旧行/新行）配对，左右两栏渲染（删除行红底、新增行绿底）；改动文件展开与历史点某提交（`/commit-diff`）都用并排视图；保留纯文本 `renderDiff` 作降级（二进制/无法解析时）
+- **「查看改动」秒出**：加载仓库状态时后台并发预取所有改动文件的 diff（并发≤3、纯本地 git 读取）并缓存，点开文件行立即显示，不再等「加载中…」
+- **提交历史右键菜单**：「历史」弹窗每条提交可点**「⋯」或右键**打开菜单——查看提交差异、复制短哈希、复制完整哈希、复制提交信息、还原此提交（revert）、拾取此提交（cherry-pick，后两者带确认框）
+- **本地 Git 功能按 better-sidebar 自适应隐藏**：已安装并激活 **dsh-better-sidebar** 时，③ 面板**隐藏本插件自带的本地 Git 工作流**（暂存/取消暂存、自定义提交、分支「切换」、提交「历史」+ revert/cherry-pick、并排 diff），因为这些能力 better-sidebar 的 Git 面板已覆盖，避免重复；此情况下「查看改动」弹窗**只列改动文件**，并**提示具体改动内容请到 dsh-better-sidebar 的「源代码管理 / Git 面板」查看**；**未安装**时则展示完整本地 Git 功能
+- host 端新增 `/stage` `/unstage` `/commit` `/branches` `/checkout` `/log` `/revert` `/cherrypick` `/commit-diff` 路由（全部走 `isLoopbackRequest` 校验 + `run()`/`GIT_SSH`）
+
+### v1.2.0（历史）
 本次更新：
 
 - **入口自适应（不再占用左栏底部按钮）**：「代码管理」的入口改为自动检测——**已安装 [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) 时**，通过其 `ctx.betterSidebar.registerTab` 把「代码管理」注册为该侧边栏的一个**新 Tab 页面**；**未安装时**，在 DSH 页面**右上角显示一个浮动按钮**，点击展开**右侧栏抽屉**（形态类似 dsh-better-sidebar 的右栏），内容为同一面板
 - **检测零开销**：激活时仅一次内存读取（`ctx.get('betterSidebar')`），零 I/O、零网络，毫秒级，不影响 DSH 启动；并对激活顺序做了兜底延迟重试，保证最终落在正确的形态
 - **移除原左栏底部按钮**：不再通过 `sidebar.footer.action` 插槽注册触发按钮；`ScmPanel` 支持 `variant`（`tab` / `drawer`）以分别适配侧边栏 Tab 与右侧抽屉布局，面板 UI 与 host 端 `/api` 路由完全复用、未改动
 - **可见性默认值更聪明**：「私有 / 公开」下拉默认选**当前仓库的实际可见性**（已存在且可读时）；当所选工作区**没有远程**（即将新建的仓库）时，默认选**公开**，而不是固定「私有」
-- **每个部分可折叠**：①环境检查 / ②SSH / ③代码管理 标题行**右上角各加一个折叠按钮**，点击收起只显示标题、再点展开；①环境检查在**所有工具都就绪**（git/gh/ssh 均已安装）时**默认折叠**并显示「✅ 均存在」提示，②③默认展开
+- **每个部分可折叠**：①环境检查 / ②SSH / ③代码管理 标题行**右上角各加一个折叠按钮**，点击收起只显示标题、再点展开；①环境检查在**所有工具都就绪**（git/gh/ssh 均已安装）时**默认折叠**并显示「✅ 均存在」提示
 
 ### v1.1.2（历史）
 本次更新：

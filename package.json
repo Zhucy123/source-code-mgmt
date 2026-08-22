@@ -1,18 +1,24 @@
 {
   "name": "source-code-mgmt",
-  "version": "1.2.0",
+  "version": "1.5.0",
   "description": "DSH plugin: source code management. Registers「代码管理」as a dsh-better-sidebar sidebar Tab when installed, otherwise a top-right floating button + right drawer — env checks (git/gh), SSH ed25519 key setup, GitHub/Gitee dual-platform (SSH config 443 + Gitee OpenAPI), connectivity test, push / new repo, and auto-ignore files over 100MB with per-file skipped reasons. Cross-platform (Windows / Linux / macOS).",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
-    ".": { "default": "./lib/index.js" },
-    "./client": { "default": "./lib/client.js" },
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "default": "./lib/client.js"
+    },
     "./package.json": "./package.json"
   },
   "dsh": {
     "bundle": "./lib/index.js",
     "client": {
-      "inject": ["@deepseek-ai/dsh-client-runtime"],
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime"
+      ],
       "platform": "web"
     }
   },
@@ -21,8 +27,12 @@
     "dsh-better-sidebar": ">=0.4.0"
   },
   "peerDependenciesMeta": {
-    "dsh-better-sidebar": { "optional": true }
+    "dsh-better-sidebar": {
+      "optional": true
+    }
   },
-  "files": ["lib/**/*.js"],
+  "files": [
+    "lib/**/*.js"
+  ],
   "license": "MIT"
 }
