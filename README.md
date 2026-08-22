@@ -239,6 +239,7 @@ pnpm add link:$(pwd)
 - **入口自适应（不再占用左栏底部按钮）**：「代码管理」的入口改为自动检测——**已安装 [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) 时**，通过其 `ctx.betterSidebar.registerTab` 把「代码管理」注册为该侧边栏的一个**新 Tab 页面**；**未安装时**，在 DSH 页面**右上角显示一个浮动按钮**，点击展开**右侧栏抽屉**（形态类似 dsh-better-sidebar 的右栏），内容为同一面板
 - **检测零开销**：激活时仅一次内存读取（`ctx.get('betterSidebar')`），零 I/O、零网络，毫秒级，不影响 DSH 启动；并对激活顺序做了兜底延迟重试，保证最终落在正确的形态
 - **移除原左栏底部按钮**：不再通过 `sidebar.footer.action` 插槽注册触发按钮；`ScmPanel` 支持 `variant`（`tab` / `drawer`）以分别适配侧边栏 Tab 与右侧抽屉布局，面板 UI 与 host 端 `/api` 路由完全复用、未改动
+- **可见性默认值更聪明**：「私有 / 公开」下拉默认选**当前仓库的实际可见性**（已存在且可读时）；当所选工作区**没有远程**（即将新建的仓库）时，默认选**公开**，而不是固定「私有」
 
 ### v1.1.2（历史）
 本次更新：
