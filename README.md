@@ -1,17 +1,17 @@
 # source-code-mgmt — DSH 源代码管理插件
 
-> 版本：**v1.5.0**　|　更新日志见文末「[版本历史](#版本历史)」
+> 版本：**v1.6.0**　|　更新日志见文末「[版本历史](#版本历史)」
 
 > DSH Web GUI 源代码管理插件：把「环境检查 → SSH 配置 → 代码上传推送」整合进「代码管理」面板，支持 GitHub / Gitee 双平台，一键管理代码仓库。
 
-> 入口位置自适应：**已安装 [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) 时**，「代码管理」作为它侧边栏的一个新 Tab 页面出现（全新侧边栏 Tab）；**未安装时**，在 DSH 页面**右上角显示一个浮动按钮**，点击展开右侧栏抽屉。两种形态都复用同一套面板 UI，且**不再占用左栏底部按钮**。
+> 入口位置自适应：**已安装 [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) 时**，「代码管理」作为它侧边栏的一个新 Tab 页面出现（全新侧边栏 Tab）；**未安装时**，「代码管理」按钮出现在 DSH 页面**右上角 Session log 旁边**（同一右对齐列表、同款胶囊样式、间距 8px 不挤在一起），点击后打开一个 **dsh-better-sidebar 外观的右侧集成面板**（推挤主内容区）。两种形态都复用同一套面板 UI，且**不再占用左栏底部按钮**。
 
 ## 功能
 
 集成入口（二选一，自动检测，无需手动切换）：
 
 - **已安装 dsh-better-sidebar**：「代码管理」注册为它侧边栏的一个**新 Tab 页面**，点击侧边栏 Tab 直接打开面板；
-- **未安装 dsh-better-sidebar**：DSH 页面**右上角出现一个「代码管理」浮动按钮**，点击后展开**右侧栏抽屉**（形态类似 dsh-better-sidebar 的右栏），内容放同一面板。
+- **未安装 dsh-better-sidebar**：「代码管理」按钮出现在 DSH 页面**右上角 Session log 旁边的右对齐列表**里（通过 DSH 的 `conversation.session.header.utilities` 槽位注册，与 Session log 同款胶囊样式、间距 8px 不挤在一起），点击后打开一个 **dsh-better-sidebar 外观的右侧集成面板**（内容放同一面板），并把主内容区往左推挤。
 
 > 检测只是激活时一次内存读取（`ctx.get('betterSidebar')`），零 I/O、零网络，不影响 DSH 启动速度；两种形态间自动切换，**不再占用左栏底部的按钮**。
 
@@ -93,7 +93,7 @@ dsh web
       name: 'source-code-mgmt'
 ```
 
-保存后**完全重启 dsh web**（不是刷新页面，而是要停掉旧进程后重新启动），然后浏览器 **F5 刷新**，「代码管理」入口即出现（已装 dsh-better-sidebar 时为侧边栏 Tab，未装时为右上角浮动按钮）。
+保存后**完全重启 dsh web**（不是刷新页面，而是要停掉旧进程后重新启动），然后浏览器 **F5 刷新**，「代码管理」入口即出现（已装 dsh-better-sidebar 时为侧边栏 Tab，未装时为右上角 Session log 旁的「代码管理」按钮 + 右侧集成面板）。
 
 > 用命令直接追加（幂等，已存在则跳过）——PowerShell：
 > ```powershell
@@ -165,7 +165,7 @@ dsh web
 1. **依赖已写入**：`~/.dsh/profiles/web/package.json` 的 `dependencies` 里应有 `source-code-mgmt`。
 2. **符号链接已建立（`link:` 方式）**：`~/.dsh/profiles/web/node_modules/source-code-mgmt` 指向源码目录（Windows 显示为 Junction）。
 3. **激活条目已添加**：`~/.dsh/profiles/web/cordis.patch.yml` 里有 `source-code-mgmt` 的 insert 条目。
-4. **重启后入口可见**：已装 dsh-better-sidebar 时侧边栏出现「代码管理」Tab；未装时右上角出现「代码管理」浮动按钮。
+4. **重启后入口可见**：已装 dsh-better-sidebar 时侧边栏出现「代码管理」Tab；未装时右上角 Session log 旁出现「代码管理」按钮，点击展开右侧集成面板。
 
 ### 常见排障
 
@@ -178,7 +178,7 @@ dsh web
 ## 使用步骤
 
 1. 重启 dsh web 并刷新浏览器
-2. 点击「**代码管理**」入口（已装 dsh-better-sidebar 时点侧边栏 Tab，未装时点右上角浮动按钮）
+2. 点击「**代码管理**」入口（已装 dsh-better-sidebar 时点侧边栏 Tab，未装时点右上角 Session log 旁的「代码管理」按钮展开右侧集成面板）
 3. 面板打开（秒显预加载数据）
 4. ①确认 Git / GitHub CLI 已安装 → ②生成密钥并测试连接 → ③选择工作区后推送或新建仓库
 
@@ -250,7 +250,13 @@ pnpm add link:$(pwd)
 
 ## 版本历史
 
-### v1.5.0（当前）
+### v1.6.0（当前）
+本次更新：
+
+- **未安装 dsh-better-sidebar 时的入口改为「右上角 Session log 旁 + 右侧集成面板」**：原「右上角浮动按钮 + 右侧抽屉」改为——「代码管理」按钮经 DSH 的 `conversation.session.header.utilities` 槽位注册，**出现在右上角 Session log 旁边的右对齐列表**里（与 Session log 同款胶囊样式、间距 8px 不挤在一起）；点击后在**右侧展开一个 dsh-better-sidebar 外观的集成面板**（复用原话术：环境检查 / SSH / 代码管理三步），并把主内容区 `#root` **往左推挤**（margin-right + width calc）。slots 服务不可用时降级为右上角浮动按钮 + 右侧面板。改动仅限 `lib/client.js`（浏览器端），刷新页面即生效，host 端 `/api` 路由未动
+- **已安装 dsh-better-sidebar 的形态不变**：仍注册为它侧边栏的「代码管理」Tab；安装/未安装两形态依旧自动检测切换
+
+### v1.5.0（历史）
 本次更新：
 
 - **① 环境检查缺工具一键安装**：某个工具（git / gh / ssh）未检测到时，该行显示「❌ 未安装」+「复制安装命令」+「**安装**」按钮——「安装」由 host 自动选包管理器执行（Windows winget / 内置功能、macOS brew、Linux apt/dnf/pacman），安装后自动重新检测；host 新增 `POST /install-tool` 路由（best-effort，回传执行命令与输出）
