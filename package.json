@@ -1,6 +1,6 @@
 {
   "name": "source-code-mgmt",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "DSH plugin: source code management. Registers「代码管理」as a dsh-better-sidebar sidebar Tab when installed, otherwise a button in the DSH session header's right-aligned utilities (beside \"Session log\") opening a right-side integrated panel that pushes the main content — env checks (git/gh), SSH ed25519 key setup, GitHub/Gitee dual-platform (SSH config 443 + Gitee OpenAPI), connectivity test, push / new repo, and auto-ignore files over 100MB with per-file skipped reasons. Cross-platform (Windows / Linux / macOS).",
   "type": "module",
   "main": "lib/index.js",
