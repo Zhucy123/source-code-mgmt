@@ -1,0 +1,15 @@
+# Profile bundle: mount the「代码管理」plugin when a profile lists this bundle.
+#
+# One row covers both halves:
+#   - host half: `lib/index.js` (package main) injects webServer and registers
+#     the /api/source-code-mgmt/* routes;
+#   - browser half: the modules node half scans enabled Loader entries whose
+#     manifest declares `dsh.client` and serves `lib/client.js` under /plugins,
+#     so the same row enables the「代码管理」entry in the web UI.
+#
+# `dsh plugin --profile <name> add source-code-mgmt` appends this bundle to the
+# profile's `dsh.profile.bundles` automatically; no manual cordis.patch.yml
+# editing is needed.
+- insert:
+    - id: source-code-mgmt
+      name: 'source-code-mgmt'

@@ -1,6 +1,10 @@
 # source-code-mgmt — DSH 源代码管理插件
 
-> 版本：**v1.8.0**　|　更新日志见文末「[版本历史](#版本历史)」
+> [English](README.en.md) | 中文
+
+> 版本：**v1.10.0**　|　更新日志见文末「[版本历史](#版本历史)」
+
+> **界面语言跟随 DSH 设置实时切换**：面板与 host 端消息自动使用 DSH 的语言（设置 → 通用 → 语言），中文 ↔ 英文即时生效，无需重启。
 
 > DSH Web GUI 源代码管理插件：把「环境检查 → SSH 配置 → 代码上传推送」整合进「代码管理」面板，支持 GitHub / Gitee 双平台，一键管理代码仓库。
 
@@ -32,6 +36,8 @@
 - 显示公钥内容，方便复制上传到对应平台
 - 检测 `gh` 是否已登录及账号
 
+> **海外用户需要 443 吗？——不需要。** 「写 SSH config」是**可选的**（仅在你点按钮时才会写入 `~/.ssh/config`）。GitHub 官方标准端点就是 `git@github.com` 走 **22 端口**，海外正常网络开箱即用，直接跳过该按钮：生成密钥 → 把公钥贴到 GitHub → 测试连接 → 推送，全程 22 端口。443 配置（`Host github.com → HostName ssh.github.com, Port 443`）是 GitHub **官方支持的**端口 22 封锁兜底方案，典型场景是国内网络、部分公司/校园网；写了也无害（仅当 443 也被封锁时才反而不通，极少数网络）。Gitee 是国内平台，海外用户基本只会用到 GitHub。
+
 ### ③ 代码管理
 - **跟随 ② 平台**：本区所有「检测/新建/可见性」逻辑随 ② 的平台选择切换（GitHub 走 `gh` CLI，Gitee 走 Gitee OpenAPI）
 - **Gitee 令牌**（仅 Gitee 模式显示）：输入 Gitee 私人访问令牌（需 `projects` 权限）→ 保存在本机 `~/.dsh/storages/source-code-mgmt-gitee.json`（0600，**不写入插件目录**、不回传到浏览器/日志）；可一键清除；令牌无效会自动清掉
@@ -59,9 +65,7 @@ DSH 打开时**不联网同步仓库**，只预取静态的环境/SSH/工作区�
 
 ## 安装
 
-### 关键前提：安装 ≠ 激活
-
-`pnpm add`（无论是 `link:`、`git+` 还是 npm）只会把插件写进 profile 的 `package.json` 依赖和 `node_modules`，**并不会自动把插件注册进 Cordis loader 树**。要让「代码管理」入口出现，**还必须激活它**（见下方「激活配置（安装后必做）」）+ **完全重启 dsh web**。这也是 dsh-update 等本地插件共用的激活方式。
+> 本插件以 **Profile Bundle** 形态分发：`package.json` 声明了 `dsh.bundle`（携带 `cordis.patch.yml` 配置层），所以 `dsh plugin --profile web add` **一条命令装完即自动激活**——无需手动编辑任何配置文件。
 
 ### 方式一：从 npm 官方包安装（推荐）
 
@@ -73,106 +77,50 @@ DSH 打开时**不联网同步仓库**，只预取静态的环境/SSH/工作区�
 dsh plugin --profile web add source-code-mgmt
 ```
 
-或者等价地手动操作：
+> 该命令在 web profile 目录里执行 `pnpm add`，成功后对账插件层：检测到本插件声明 `dsh.bundle`，会自动把它追加进 `dsh.profile.bundles`（见 `~/.dsh/profiles/web/package.json`）并注册进 Cordis loader 树，**一步装完即用**。
 
-```bash
-cd ~/.dsh/profiles/web
-pnpm add source-code-mgmt
-dsh web
-```
-
-> 说明：`dsh plugin --profile web add <包名>` 本质是「在 web profile 目录里执行 `pnpm add <包名>`」并顺带对账插件层，比手动 `cd` 更省心。但它**同样不会自动把插件激活**（不会替你写 `cordis.patch.yml` 的 insert 条目），所以装完后仍需下面「激活配置」里的步骤 + 完全重启。
-
-### 激活配置（安装后必做）
-
-插件**不会**因为 `pnpm add` 就自动出现在侧边栏。请在 `~/.dsh/profiles/web/cordis.patch.yml` 中添加 insert 条目（若文件已有其他插件的 insert，照格式并列添加即可）：
-
-```yaml
-- insert:
-    - id: source-code-mgmt
-      name: 'source-code-mgmt'
-```
-
-保存后**完全重启 dsh web**（不是刷新页面，而是要停掉旧进程后重新启动），然后浏览器 **F5 刷新**，「代码管理」入口即出现（已装 dsh-better-sidebar 时为侧边栏 Tab，未装时为右上角 Session log 旁的「代码管理」按钮 + 右侧集成面板）。
-
-> 用命令直接追加（幂等，已存在则跳过）——PowerShell：
-> ```powershell
-> $patch = "$HOME\.dsh\profiles\web\cordis.patch.yml"
-> $addLines = "`n# Activate the source-code-mgmt plugin (installed as a profile dependency).`n- insert:`n    - id: source-code-mgmt`n      name: 'source-code-mgmt'`n"
-> $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
-> if (Test-Path $patch) {
->     $content = [System.IO.File]::ReadAllText($patch)
->     if ($content -notmatch 'source-code-mgmt') {
->         [System.IO.File]::AppendAllText($patch, $addLines, $utf8NoBom)
->         Write-Host "OK: 已追加 source-code-mgmt 激活条目" -ForegroundColor Green
->     } else {
->         Write-Host "SKIP: cordis.patch.yml 已包含 source-code-mgmt" -ForegroundColor Yellow
->     }
-> } else {
->     Write-Host "ERROR: 未找到 $patch" -ForegroundColor Red
-> }
-> ```
+装完**完全重启 dsh web**（不是刷新页面，而是要停掉旧进程后重新启动），然后浏览器 **F5 刷新**，「代码管理」入口即出现（已装 dsh-better-sidebar 时为侧边栏 Tab，未装时为右上角 Session log 旁的「代码管理」按钮 + 右侧集成面板）。
 
 ### 方式二：从本地目录安装（开发/测试）
 
 **Windows (PowerShell):**
-
 ```powershell
-# 1. 进入你的 DSH profile 目录
-cd ~/.dsh/profiles/web
-
-# 2. 用 link 协议添加插件（指向本地源码绝对路径），会建立符号链接
-pnpm add link:C:/path/to/source-code-mgmt
-
-# 3. 激活插件：同上（见上方「激活配置」；追加 insert 条目后完全重启）
+# 用 DSH 插件命令安装本地源码（link: 协议，符号链接，改源码即生效）
+dsh plugin --profile web add link:C:/path/to/source-code-mgmt
 dsh web
 ```
 
 **Linux / macOS:**
-
 ```bash
-# 1. 进入你的 DSH profile 目录
-cd ~/.dsh/profiles/web
-
-# 2. 链接到插件源码目录（符号链接）
-pnpm add link:/home/yourname/path/to/source-code-mgmt
-
-# 3. 激活插件：同上（见上方「激活配置」；追加 insert 条目后完全重启）
+dsh plugin --profile web add link:/home/yourname/path/to/source-code-mgmt
 dsh web
 ```
 
 ### 方式三：从 GitHub 安装（分发场景）
 
 **Windows / Linux / macOS 通用:**
-
 ```bash
-# 1. 进入你的 DSH profile 目录
-cd ~/.dsh/profiles/web
-
-# 2. 从 GitHub 安装插件（实际下载源码到 node_modules）
-pnpm add git+https://github.com/Zhucy123/source-code-mgmt.git
-
-# 3. 激活插件：同上（见上方「激活配置」；追加 insert 条目后完全重启）
+dsh plugin --profile web add git+https://github.com/Zhucy123/source-code-mgmt.git
 dsh web
 ```
 
-> 方式三装完同样**不会自动激活**（激活方式同方式一）；且它是**实际拷贝**到 node_modules，改动源码需重新 `pnpm add` 拉取（不像 `link:` 是符号链接、改源码即生效）。
+> git 安装会把源码**实际拷贝**到 node_modules，改动源码需重新 `dsh plugin --profile web add ...` 拉取（不像 `link:` 是符号链接、改源码即生效）。
 
 ### 验证安装是否成功
 
-安装 + 激活 + 重启后，可以核对以下几点：
+安装并重启后，可以核对以下几点：
 
 1. **依赖已写入**：`~/.dsh/profiles/web/package.json` 的 `dependencies` 里应有 `source-code-mgmt`。
-2. **符号链接已建立（`link:` 方式）**：`~/.dsh/profiles/web/node_modules/source-code-mgmt` 指向源码目录（Windows 显示为 Junction）。
-3. **激活条目已添加**：`~/.dsh/profiles/web/cordis.patch.yml` 里有 `source-code-mgmt` 的 insert 条目。
+2. **已加入配置层**：`~/.dsh/profiles/web/package.json` 的 `dsh.profile.bundles` 列表里应有 `source-code-mgmt`（`dsh plugin add` 自动写入，无需手动编辑）。
+3. **符号链接已建立（`link:` 方式）**：`~/.dsh/profiles/web/node_modules/source-code-mgmt` 指向源码目录（Windows 显示为 Junction）。
 4. **重启后入口可见**：已装 dsh-better-sidebar 时侧边栏出现「代码管理」Tab；未装时右上角 Session log 旁出现「代码管理」按钮，点击展开右侧集成面板。
 
 ### 常见排障
 
 | 现象 | 原因 / 处理 |
 |------|------------|
-| 已 `pnpm add` 并重启，但按钮不出现 | 最常见：没在 `cordis.patch.yml` 里激活。补上 insert 条目后**完全重启**（不是刷新）。 |
-| 改了 `cordis.patch.yml` 但仍不出现 | 服务未真正重启——旧进程还占着 3080 端口。停掉旧 `dsh web` 进程再启动。 |
+| 已 `dsh plugin add` 并重启，但按钮不出现 | 最常见：装完没有**完全重启**（不是刷新）。停掉旧 `dsh web` 进程再启动（旧进程还占着 3080 端口时，新实例起不来）。 |
+| 安装时提示「declares no dsh.bundle」 | 装到的版本缺少 bundle 声明（旧版或打包遗漏 `cordis.patch.yml`）。确认版本 ≥ 1.9.0 后重新安装/更新。 |
 | 出现「Failed to load plugins」 | 插件 host 端 `index.js` 启动报错（多为依赖解析问题）。查看启动日志，确认 `node_modules` 依赖已装齐。 |
 
 ## 使用步骤
@@ -240,9 +188,8 @@ dsh web
 ```bash
 git clone https://github.com/Zhucy123/source-code-mgmt.git
 cd source-code-mgmt
-# 在本地 DSH 测试
-cd ~/.dsh/profiles/web
-pnpm add link:$(pwd)
+# 在本地 DSH 测试（安装到 web profile，自动激活）
+dsh plugin --profile web add link:$(pwd)
 ```
 
 - 改动 `lib/client.js`（浏览器端）→ 刷新页面即生效
@@ -250,7 +197,17 @@ pnpm add link:$(pwd)
 
 ## 版本历史
 
-### v1.8.0（当前）
+### v1.10.0（当前）
+本次更新：
+
+- **界面中英文实时切换（跟随 DSH 语言设置）**：面板全部文案（①②③ 三步、按钮、弹窗、状态/结果消息、确认框、Tab 标题）与 host 端错误/结果消息改为双语词典驱动——语言 = DSH 设置 → 通用 → 语言，切换**即时生效**（面板经 `ctx.locale` 订阅实时重渲染，Tab 标题随动），无需刷新/重启；host 端按请求的 `?lang=` 经 AsyncLocalStorage 按请求返回对应语言，并发不串扰。中文界面与 v1.9.0 完全一致，英文界面为完整翻译（含 >100MB 忽略原因、Gitee 令牌提示、git 命令失败回退等全部消息）。新增 `tools/` 下的 i18n 提取/应用/测试脚本便于后续维护
+
+### v1.9.0（历史）
+本次更新：
+
+- **改为 Profile Bundle 分发，安装即激活**：`package.json` 的 `dsh.bundle` 从裸字符串 `"./lib/index.js"` 改为对象形态 `{ "patch": "./cordis.patch.yml" }`，并新增 `cordis.patch.yml`（insert `source-code-mgmt` 行）。现在 `dsh plugin --profile web add source-code-mgmt` 一步装完即被自动加入 `dsh.profile.bundles` 并注册进 Cordis loader 树，**不再需要手动编辑 `cordis.patch.yml` 激活**；README 中「安装 ≠ 激活」说明与 PowerShell 激活脚本已删除。功能行为零变化（仍是同一份 `lib/index.js` host 端 + `lib/client.js` 浏览器端）
+
+### v1.8.0（历史）
 本次更新：
 
 - **新增「推送暂存」按钮**（③面板「同步」行）：当**本地领先有提交**或**有已暂存的改动**时，「同步」行「本地领先 N 提交」后面出现「**推送暂存**」按钮——点击后**只把已暂存的内容**用**你填写的提交信息**（没填则自动生成 `chore: update <文件夹名>`）提交，然后**推送到远程**；不会像「推送更改」那样自动暂存所有未暂存的改动。推送成功后自动刷新状态并显示「⟳ 刷新中…」，界面显示本次提交的信息与 hash。host 端新增 `POST /push-staged` 路由（`pushStagedFlow`，沿用本插件 `run()`/GIT_SSH）
