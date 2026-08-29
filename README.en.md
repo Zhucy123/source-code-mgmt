@@ -1,6 +1,6 @@
 # source-code-mgmt — DSH Source Code Management Plugin
 
-> Version: **v1.10.0**　|　中文版见 [README.md](README.md)
+> Version: **v1.10.1**　|　中文版见 [README.md](README.md)
 
 > A source-code management plugin for the DSH Web GUI: it bundles「environment check → SSH setup → commit/push/upload code」into one「Code Management」panel with GitHub / Gitee dual-platform support.
 
@@ -196,7 +196,16 @@ dsh plugin --profile web add link:$(pwd)
 
 ## Version history
 
-### v1.10.0 (current)
+### v1.10.1 (current)
+- **Fix: the top-right「代码管理」button lingered even after dsh-better-sidebar was installed.** For the fallback entry (better-sidebar absent) the teardown handler was only wired for the ReactDOM fallback path — the slots path never stored it, so switching to the sidebar-Tab form left the header entry behind. The `slots.inject` disposer is now captured into `entryUnmount`, so switching to a Tab tears the header entry down correctly.
+- **Fix: when better-sidebar is absent, the entry only showed inside a conversation and vanished in the new-conversation / no-conversation empty state.** The old entry lived in `conversation.session.header.utilities` (`scope: 'session'`), and the whole session header is hidden via `hideChrome` in the empty state. It is now **always present at the top-right**: with an active session it sits beside「Session log」(the right-aligned session-header utilities); in the new/no-conversation empty state it becomes a fixed top-right button registered in the always-mounted `shell.overlay` slot (shown only when the session is blank or absent, so it never duplicates the header button).
+- **Fix: on refresh the「代码管理」button overlapped「Session log」.** `captureSessions()` takes ~1.2s to populate the session list, and before that the button wrongly believed there was no session and lit up early. The overlap button now renders nothing until the session list is captured.
+- **Corrected visibility signal:** the fixed button now keys off whether the current session is blank (`sessions.list.getSnapshot().byId[current].blank`) — show only for blank/no-session, hide for an active (non-blank) session — replacing the inaccurate `current === undefined` check.
+- **Robustness:** better-sidebar detection now uses a **bounded multi-tick retry** (fast start then slowing, ~44s, stopping on success and cleared on teardown) instead of a single 1.5s retry, covering slow client cold-start so the Tab-switch race no longer misses.
+
+> All changes are client-side (`lib/client.js`); refresh the page to pick them up. Host `/api` routes and the push/ignore logic are untouched.
+
+### v1.10.0 (history)
 - **Bilingual UI, live (follows DSH's language setting)**: every piece of panel copy (steps ①②③, buttons, dialogs, status/result messages, confirm dialogs, the sidebar Tab title) plus host-side error/result messages is now driven by a bilingual dictionary. Language comes from DSH's Settings → General → Language and switches **instantly** — the panel re-renders via a `ctx.locale` subscription (the Tab title follows too), no refresh or restart. The host returns messages per-request based on `?lang=` (AsyncLocalStorage-scoped, so concurrent requests never cross languages). The Chinese UI is byte-identical to v1.9.0; English is a complete translation (including >100MB skip reasons, Gitee token hints, git command fallback messages). The `tools/` directory now holds the i18n extract/apply/test scripts for future maintenance.
 
 ### v1.9.0 (history)

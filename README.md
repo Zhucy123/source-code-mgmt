@@ -2,22 +2,22 @@
 
 > [English](README.en.md) | 中文
 
-> 版本：**v1.10.0**　|　更新日志见文末「[版本历史](#版本历史)」
+> 版本：**v1.10.1**　|　更新日志见文末「[版本历史](#版本历史)」
 
 > **界面语言跟随 DSH 设置实时切换**：面板与 host 端消息自动使用 DSH 的语言（设置 → 通用 → 语言），中文 ↔ 英文即时生效，无需重启。
 
 > DSH Web GUI 源代码管理插件：把「环境检查 → SSH 配置 → 代码上传推送」整合进「代码管理」面板，支持 GitHub / Gitee 双平台，一键管理代码仓库。
 
-> 入口位置自适应：**已安装 [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) 时**，「代码管理」作为它侧边栏的一个新 Tab 页面出现（全新侧边栏 Tab）；**未安装时**，「代码管理」按钮出现在 DSH 页面**右上角 Session log 旁边**（同一右对齐列表、同款胶囊样式、间距 8px 不挤在一起），点击后打开一个 **dsh-better-sidebar 外观的右侧集成面板**（推挤主内容区）。两种形态都复用同一套面板 UI，且**不再占用左栏底部按钮**。
+> 入口位置自适应：**已安装 [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) 时**，「代码管理」作为它侧边栏的一个新 Tab 页面出现（全新侧边栏 Tab）；**未安装时**，「代码管理」按钮位于 DSH **右上角、常驻可见**——有会话时放在「Session 日志」旁边的右对齐列表里，无会话空态时改为一个固定在**右上角**的浮动按钮，点击后打开一个 **dsh-better-sidebar 外观的右侧集成面板**（推挤主内容区）。两种形态都复用同一套面板 UI。
 
 ## 功能
 
 集成入口（二选一，自动检测，无需手动切换）：
 
 - **已安装 dsh-better-sidebar**：「代码管理」注册为它侧边栏的一个**新 Tab 页面**，点击侧边栏 Tab 直接打开面板；
-- **未安装 dsh-better-sidebar**：「代码管理」按钮出现在 DSH 页面**右上角 Session log 旁边的右对齐列表**里（通过 DSH 的 `conversation.session.header.utilities` 槽位注册，与 Session log 同款胶囊样式、间距 8px 不挤在一起），点击后打开一个 **dsh-better-sidebar 外观的右侧集成面板**（内容放同一面板），并把主内容区往左推挤。
+- **未安装 dsh-better-sidebar**：「代码管理」按钮常驻在 DSH **右上角**——有活跃（非空白）会话时通过 `conversation.session.header.utilities` 槽位放在「Session 日志」旁（同款胶囊、间距一致）；空白（新对话）/无会话空态时通过常驻的 `shell.overlay` 槽注册一个固定在右上角的浮动按钮（仅空白或没有会话时显示，活跃会话时交给 header 内的按钮，避免重复）。点击都打开一个 **dsh-better-sidebar 外观的右侧集成面板**（内容放同一面板），并把主内容区往左推挤。
 
-> 检测只是激活时一次内存读取（`ctx.get('betterSidebar')`），零 I/O、零网络，不影响 DSH 启动速度；两种形态间自动切换，**不再占用左栏底部的按钮**。
+> 检测只是激活时一次内存读取（`ctx.get('betterSidebar')`），零 I/O、零网络，不影响 DSH 启动速度；两种形态间自动切换。未安装 better-sidebar 时入口常驻右上角（有会话=Session 日志旁，空态=固定右上角浮动按钮），空态/新对话也可见。
 
 面板分三步：
 
@@ -197,7 +197,18 @@ dsh plugin --profile web add link:$(pwd)
 
 ## 版本历史
 
-### v1.10.0（当前）
+### v1.10.1（当前）
+本次更新（修复 better-sidebar 集成与「未安装 better-sidebar」时入口的若干问题）：
+
+- **修复：装了 dsh-better-sidebar 后，右上角「代码管理」按钮仍残留**。根因：未装 better-sidebar 时的降级入口此前只给 ReactDOM 降级路径赋了 `entryUnmount`，slots 路径漏了——导致切到「侧边栏 Tab」形态时 header 入口没被拆掉。现已把 `slots.inject` 返回的 disposer 记进 `entryUnmount`，切到 Tab 时正确拆除（顺带修正同类清理逻辑）。
+- **修复：未安装 better-sidebar 时，入口只在对话内显示，新对话/无会话空态不显示**。根因：旧入口挂 `conversation.session.header.utilities`（`scope: 'session'`），而空态时整个会话 header 被 `hideChrome` 隐藏，按钮出不来。现在改为**右上角常驻**——有活跃会话时放在「Session 日志」旁（会话 header 的右对齐列表），新对话/无会话空态时改为 `shell.overlay` 常驻槽里 `position: fixed` 钉在右上角的按钮（仅空白/无会话时显示，避免与 header 按钮重复）。
+- **修复：刷新瞬间「代码管理」按钮与「Session 日志」重叠**。根因：`captureSessions()` 延迟 1.2s 才捕获到 session 列表，捕获前误判为「无会话」而提前点亮常驻按钮。现在未捕获到 session 列表前不渲染常驻按钮，杜绝刷新闪叠。
+- **判定信号修正**：常驻按钮的显隐改用「当前会话是否空白」判断（`sessions.list.getSnapshot().byId[current].blank`）——活跃（非空白）会话才隐藏常驻按钮（交给 header 内的按钮），空白/无会话则显示，替代原来不准确的「`current === undefined`」判断。
+- **健壮性**：better-sidebar 服务的探测由「一次性 1.5s 重试」改为**有界多档重试**（快节奏起步再放慢，覆盖约 44s，拿到即停、卸载即清），兜底 better-sidebar 客户端冷启动较慢导致漏切 Tab 的竞态。
+
+> 以上均为客户端（`lib/client.js`）改动，刷新页面即生效；host 端 `/api` 路由与推送/忽略逻辑未改动。
+
+### v1.10.0（历史）
 本次更新：
 
 - **界面中英文实时切换（跟随 DSH 语言设置）**：面板全部文案（①②③ 三步、按钮、弹窗、状态/结果消息、确认框、Tab 标题）与 host 端错误/结果消息改为双语词典驱动——语言 = DSH 设置 → 通用 → 语言，切换**即时生效**（面板经 `ctx.locale` 订阅实时重渲染，Tab 标题随动），无需刷新/重启；host 端按请求的 `?lang=` 经 AsyncLocalStorage 按请求返回对应语言，并发不串扰。中文界面与 v1.9.0 完全一致，英文界面为完整翻译（含 >100MB 忽略原因、Gitee 令牌提示、git 命令失败回退等全部消息）。新增 `tools/` 下的 i18n 提取/应用/测试脚本便于后续维护

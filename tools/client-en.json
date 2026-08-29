@@ -225,7 +225,7 @@
 "提交历史": "Commit history",
 "与远程同步差异": "Sync differences vs remote",
 "关闭": "Close",
-"已安装 dsh-better-sidebar，此处只列改动文件列表；具体改动内容请到 dsh-better-sidebar 的「源代码管理 / Git 面板」查看。": "dsh-better-sidebar is installed — this lists changed files only; see the actual changes in its \"Source Control / Git\" panel.",
+"已安装 dsh-better-sidebar，此处只列改动文件列表；具体改动内容请到 dsh-better-sidebar 的「源代码管理面板」查看。": "dsh-better-sidebar is installed — this lists changed files only; see the actual changes in its \"Source Control panel\".",
 "点击收起": "Click to collapse",
 "点击查看改动内容": "Click to view the diff",
 "新文件（untracked）暂无内容 diff": "New (untracked) file — no diff yet",
