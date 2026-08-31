@@ -1,6 +1,6 @@
 # source-code-mgmt — DSH Source Code Management Plugin
 
-> Version: **v1.10.1**　|　中文版见 [README.md](README.md)
+> Version: **v1.11.0**　|　中文版见 [README.md](README.md)
 
 > A source-code management plugin for the DSH Web GUI: it bundles「environment check → SSH setup → commit/push/upload code」into one「Code Management」panel with GitHub / Gitee dual-platform support.
 
@@ -42,7 +42,7 @@ The panel has three steps:
 - **Workspace selector**: dropdown of DSH-registered workspace folders
 - **Select folder →**: paste an absolute path or click「Browse…」for a native folder picker; confirmed folders are **persisted into a custom folder list** (`~/.dsh/storages/source-code-mgmt-dirs.json`, separate from the plugin dir — no personal paths leak), shown with a custom-folder badge and a ✕ to remove the entry (record only, never deletes the actual folder)
 - Shows repo status: platform source, branch, remote, pending change count, ahead/behind remote, >100MB files
-- **View details**: when there are changes, a「查看」(view) button opens a dialog listing changed/added/deleted/renamed **files or folders**; tracked changes can be expanded to show an inline **side-by-side diff** (old left / new right, deletions red, additions green); untracked files are listed by name only. When local and remote diverge, a view button on the sync row lists the concrete commits you're ahead/behind
+- **View details**: when there are changes, a「查看」(view) button opens a dialog listing changed/added/deleted/renamed **files or folders**. Every **text-previewable** file — including new/untracked files — can be expanded to show an inline **side-by-side diff** (old left / new right, deletions red, additions green); files with no old version (pure additions) show only the **「新版本」column**; **binary files show no「查看」button** (their content can't be previewed as text). When local and remote diverge, a view button on the sync row lists the concrete commits you're ahead/behind
 - **Local Git workflow** (does not change the remote-sync logic):
   - **Stage / unstage** per file in the changes dialog (distinguishing staged/unstaged by `git status` XY codes), with「已暂存 / 未暂存」markers
   - **Commit message input + Commit button** above the repo name (git repos with changes only) — custom message, or auto-generated when left empty
@@ -180,6 +180,7 @@ All routes are **loopback-only** (`sec-fetch-site` + Origin checks) — only the
 - **Automatic git / gh / ssh / ssh-keygen binary resolution** at startup: ① env overrides → ② PATH lookup (`.exe` added on Windows) → ③ (Windows only) Git's bundled dirs (`usr\bin` / `bin`), with the bare command name as a last resort. Git alone is enough even when `ssh` isn't on PATH — no per-machine config
 - Optional explicit binary paths via env vars: `DSH_SCM_GIT` / `DSH_SCM_GH` / `DSH_SCM_SSH` / `DSH_SCM_SSH_KEYGEN`
 - **SSH transport fix**: Git for Windows' bundled MSYS `ssh.exe` (`usr\bin\ssh.exe`) can fail with `couldn't create signal pipe, Win32 error 5` when spawned from a detached/agent process, breaking `git push`/`git pull`. The plugin injects `GIT_SSH` pointing at a working `ssh` (usually the system OpenSSH `C:\Windows\System32\OpenSSH\ssh.exe`) for git remote operations
+- **Non-ASCII filename compatibility**: git's default `core.quotepath` prints paths with non-ASCII bytes as octal-escaped quoted strings (which display as garbled text). The plugin injects `-c core.quotepath=false` into every git invocation (raw UTF-8 output) and additionally unescapes any still-quoted paths via `parseGitPath()` — Chinese filenames display correctly in the changes list and in diff headers
 - **One-click missing-tool install across platforms**: winget / built-in features (fallback choco/scoop) on Windows, brew on macOS, apt-get / dnf / pacman on Linux (auto `sudo -n`; skipped when already root). The native folder picker is Windows-only; on macOS/Linux paste the path into the input box instead
 
 ## Development
@@ -196,7 +197,16 @@ dsh plugin --profile web add link:$(pwd)
 
 ## Version history
 
-### v1.10.1 (current)
+### v1.11.0 (current)
+This release focuses on the changed-files preview experience and Chinese-filename compatibility:
+
+- **New/untracked files are now viewable**: an untracked (新增) file row now shows「▸ 查看」and expands to display the file's full content (rendered as an "all added" diff; oversized files show the first 2000 lines with a truncation note, capped at 1 MB so huge files are never slurped into memory); an empty new file shows「（空文件）」.
+- **No「旧版本」column for new files**: the side-by-side diff shows only the「新版本」column when the diff has no deletion rows (pure additions, e.g. new/untracked files); diffs with deletions keep the two-column comparison.
+- **Binary files show no「查看」button**: each changed file is sniffed (NUL-byte heuristic, the same one git uses) to decide whether its content can be previewed as text — binary files (images, executables, …) get no「查看」button (tooltip: "Binary file — text preview unavailable"); files without a working-tree copy (deleted, or staged-then-removed) are judged via `git diff --numstat` (`-\t-` marks binary).
+- **Chinese filename compatibility fix**: git's default `core.quotepath` prints Chinese paths as octal-escaped quoted strings (e.g. `"\346\270\270…md"`), which showed up garbled in the changes list and diff headers. Every git invocation now gets `-c core.quotepath=false` (raw UTF-8 paths), plus a defensive `parseGitPath()` unescaper applied to every path-parsing site — `status --porcelain`, `ls-files -z`, `diff --name-only`, and `git diff`/`git show` headers.
+- New regression test `tools/verify-cn-paths.test.mjs` (Chinese path parsing, text/binary viewability, new-file diff generation, deleted-file detection).
+
+### v1.10.1 (history)
 - **Fix: the top-right「代码管理」button lingered even after dsh-better-sidebar was installed.** For the fallback entry (better-sidebar absent) the teardown handler was only wired for the ReactDOM fallback path — the slots path never stored it, so switching to the sidebar-Tab form left the header entry behind. The `slots.inject` disposer is now captured into `entryUnmount`, so switching to a Tab tears the header entry down correctly.
 - **Fix: when better-sidebar is absent, the entry only showed inside a conversation and vanished in the new-conversation / no-conversation empty state.** The old entry lived in `conversation.session.header.utilities` (`scope: 'session'`), and the whole session header is hidden via `hideChrome` in the empty state. It is now **always present at the top-right**: with an active session it sits beside「Session log」(the right-aligned session-header utilities); in the new/no-conversation empty state it becomes a fixed top-right button registered in the always-mounted `shell.overlay` slot (shown only when the session is blank or absent, so it never duplicates the header button).
 - **Fix: on refresh the「代码管理」button overlapped「Session log」.** `captureSessions()` takes ~1.2s to populate the session list, and before that the button wrongly believed there was no session and lit up early. The overlap button now renders nothing until the session list is captured.
