@@ -1,0 +1,57 @@
+{
+  "provider": "github",
+  "owner": "awesome-dsh-plugin",
+  "repo": "awesome-dsh-plugin",
+  "baseBranch": "main",
+  "entryFilePath": "data/plugins/{OWNER}__{REPO}.yml",
+  "entryTemplate": "url: https://github.com/{OWNER}/{REPO}\nname: {NAME}\ncategory: {CATEGORY}\ndescription:\n  en: '{DESC_EN}'\n  zh: '{DESC_ZH}'\n",
+  "regenerateCommands": [
+    [
+      "npm",
+      "ci"
+    ],
+    [
+      "node",
+      "scripts/generate-readme.mjs"
+    ]
+  ],
+  "prTitle": "Add {NAME}",
+  "prBodyHint": "新增条目文件 data/plugins/{OWNER}__{REPO}.yml；已运行重生成命令更新 README；仓库已满足 dsh.bundle 声明、满 1 天、提交数 ≥10、dsh-plugin topic；描述已对照源码核实。",
+  "steps": [
+    {
+      "type": "ensure-fork"
+    },
+    {
+      "type": "clone-fork"
+    },
+    {
+      "type": "add-upstream"
+    },
+    {
+      "type": "fetch-upstream"
+    },
+    {
+      "type": "branch",
+      "name": "add-{REPO}"
+    },
+    {
+      "type": "write-entry"
+    },
+    {
+      "type": "regenerate-readme"
+    },
+    {
+      "type": "commit",
+      "message": "Add {NAME}"
+    },
+    {
+      "type": "push"
+    },
+    {
+      "type": "create-pr"
+    }
+  ],
+  "preset": true,
+  "generatedAt": "2026-09 (preset)",
+  "model": "preset"
+}

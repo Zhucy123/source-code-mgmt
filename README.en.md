@@ -1,6 +1,6 @@
 # source-code-mgmt — DSH Source Code Management Plugin
 
-> Version: **v1.11.0**　|　中文版见 [README.md](README.md)
+> Version: **v1.13.0**　|　中文版见 [README.md](README.md)
 
 > A source-code management plugin for the DSH Web GUI: it bundles「environment check → SSH setup → commit/push/upload code」into one「Code Management」panel with GitHub / Gitee dual-platform support.
 
@@ -19,7 +19,7 @@ Entry points (auto-detected, no manual switching):
 
 > Detection is a single in-memory read at activation time (`ctx.get('betterSidebar')`) — zero I/O, zero network, no impact on DSH startup.
 
-The panel has three steps:
+The panel has six steps (①②③ are the core three; ④⑤⑥ are the newer extensions, collapsed by default):
 
 ### ① Environment Check
 - Shows the **OS** (friendly names `Windows` / `macOS` / `Linux`, from the underlying `win32` / `darwin` / `linux` platform ids)
@@ -53,6 +53,21 @@ The panel has three steps:
 - **Create repo & push**: repo name defaults to the **folder name** (read-only), optional private/public; the button is disabled with a hint when a same-name repo already exists. For a brand-new directory with no commits, it auto-stages an initial commit before creating the repo to avoid "no commits found"
   - GitHub: `gh repo create --private|--public --source=. --push`
   - Gitee: Gitee OpenAPI `POST /user/repos` to create, then sets the SSH remote `git@gitee.com:<owner>/<name>.git` and `git push` (through ②'s SSH key)
+
+### ④ Clone repos
+- Follows ②'s platform: lists **every remote repo of the signed-in account** (GitHub via `gh repo list`, Gitee via OpenAPI `user/repos`) and flags which already exist locally (default = default workspace + registered workspaces + custom dirs)
+- **Clone into**: optional target parent directory (default = DSH's default workspace; leave empty to clone to the default location); cloning uses the SSH URL and auto-adds the clone to the custom-directory list so ③ can select it directly
+- Repos already present locally can't be re-cloned; every other repo has a「克隆」(clone) button
+
+### ⑤ Pull Request
+- **Target repo recorded locally**: paste the repo URL you want to PR to (`https://github.com/owner/repo`, `owner/repo`, …) → saved to `~/.dsh/storages/source-code-mgmt-pr-targets.json` (**not** the plugin directory); saved repos appear as removable chips and can be re-selected
+- **AI PR-rule analysis**: fetches the target repo's README / CONTRIBUTING / PR template / package.json scripts and has the **DSH default model** figure out how to PR to that repo (e.g. awesome-dsh-plugin: create `data/plugins/<owner>__<repo>.yml`, regenerate the README, satisfy the `dsh.bundle`/commit-count/topic gates), producing a structured **step rule cached in the plugin directory `rules/<owner>__<repo>.json`** — the next PR to the same repo runs straight from cache, **no repeated AI spend**;「Re-analyze (ignore cache)」forces a fresh pass
+- **AI PR-content generation**: fill in the plugin info (owner/repo, category, en/zh description) → AI builds the title + description + entry-file content from the rule template — **fully editable, never submitted directly**
+- **Run PR**: executes the rule steps `fork → clone fork → add upstream → fetch → create branch → write entry → (regenerate README) → commit → push → create PR` (GitHub via `gh pr create`, Gitee via OpenAPI) with per-step logs and the PR link; working dir defaults to the default workspace
+
+### ⑥ Publish npm package
+- Five-step wizard (run in the target directory): **① check registry** `npm config get registry` → **② view auth config** `npm config list` (auto-redacts token/auth/password) → **③ verify identity** `npm whoami` → **④ preview packed files** `npm pack --dry-run` (see exactly what would be published, nothing is packed or uploaded) → **⑤ publish** `npm publish`
+- Publishing requires ticking「I've reviewed the above — confirm publishing to the npm registry」first, preventing accidental publishes
 
 ### Data loading timing (fetch on open, "refreshing…" indicator)
 DSH does **not** sync repos on startup — it only prefetches static env/SSH/workspace lists. Opening the plugin, switching workspace/folder, refreshing, and any push/pull/stage/commit operation fetch the latest repo status over the network and show a「⟳ 刷新中…」indicator — no stale data (like an old "no changes") when opening/reopening/switching.
@@ -197,7 +212,38 @@ dsh plugin --profile web add link:$(pwd)
 
 ## Version history
 
-### v1.11.0 (current)
+### v1.13.0 (current)
+Second feedback pass (④⑤⑥ interaction tightening):
+
+- **④ "Already local" detection widened to registered dirs**: previously the clone list only checked under the currently-selected clone dir; if you switched the clone target elsewhere (e.g. the `workspace` dir) where a repo already existed, it still showed "cloneable". Now a new `localRepoExistsAnywhere()` checks the selected dir **plus every workspace / favorite dir registered by step ③** (from `~/.dsh/storages/workspace.json` + `source-code-mgmt-dirs.json`) — a repo present in any registered location is marked "Already local". Since clone success already records the destination into favorite dirs, "this location already has the repo" knowledge persists automatically and the list hits on it next time.
+- **④ New "clone any repo by URL into any location"**: the clone section gained a bottom row — paste any git URL (HTTPS or SSH; GitHub / Gitee / self-hosted), choose a destination dir, and the repo name is derived from the last URL segment (`.git` stripped) and sent to `POST /clone/run`. Reuses the "Choose directory…" button (absolute path or native folder picker, remembered into favorite dirs). The destination defaults to the top dropdown selection; a hint appears if none is chosen.
+- **⑥ npm: target dir now defaults empty**: previously it pre-filled with the default workspace, risking publishing to an unexpected dir. Now the target dir **starts empty**, with a hint "left empty on purpose — it will NOT auto-use the default dir"; "Re-check / login / Run" buttons are disabled and guarded until the user picks a directory (via the step-③/④ "Choose directory…" button).
+- **⑤ narrowed to "submit an awesome-dsh-plugin listing PR"**: keeping just the most-used path first — hidden the "target repo URL" input, the "record locally / recorded" row & chips, the "Analyze PR rules / Re-analyze (ignore cache)" buttons and the manual-rules panel, and the generic-PR-flow fallback box. The target repo is locked to `https://github.com/awesome-dsh-plugin/awesome-dsh-plugin`; on mount it loads that repo's **preset listing rules** once (no AI spent) with a loading state. The lower section stays: plugin info (name / category / description en/zh) → "Generate PR content (AI)" (preset-template fill without AI when complete, still editable) → editable title / description / entry-file content + workdir → "Run PR" (step-by-step logs + PR link). Host routes (`/pr/analyze`, `/pr/targets`, …) and the preset-rule file are unchanged — only the front-end narrowed.
+
+### v1.12.0 (history)
+Three new panel sections (④ Clone / ⑤ Pull Request / ⑥ npm publish):
+
+- **④ Clone repos**: lists every remote repo of the signed-in account (GitHub via `gh repo list`, Gitee via OpenAPI `user/repos`) and flags which already exist locally (default = default workspace + registered workspaces + custom dirs). **Default target directory = the user's home directory** (`os.homedir()`; `C:\Users\<name>` on Windows, `$HOME` on Linux/macOS) — leave empty to clone there. Every directory row has a 「选择目录…」(Choose directory…) button matching ③ Code Management (type an absolute path or open the native folder picker; confirmed paths are remembered as custom dirs). Cloning uses SSH URLs and adds the clone to the custom-directory list automatically. The "already exists" check also covers "a sibling dir whose basename equals the repo name and contains `.git`". Host routes: `GET /clone/default-dir`, `GET /clone/home`, `GET /clone/repos`, `POST /clone/run`.
+- **⑤ Pull Request**: target repo URLs are recorded to `~/.dsh/storages/source-code-mgmt-pr-targets.json` (**not** the plugin directory). **Entering a URL automatically reads that repo's local rule** (`GET /pr/rule`, read-only cache, no AI spend): a preset/cached rule shows its specific PR flow, otherwise a generic flow is shown with a prompt to 「Analyze PR rules」. A **preset rule is seeded to `rules/awesome-dsh-plugin__awesome-dsh-plugin.json`** — enter `https://github.com/awesome-dsh-plugin/awesome-dsh-plugin` and its exact contribution flow is shown (fork → clone → write entry in `data/plugins/<owner>__<repo>.yml` → `npm ci && node scripts/generate-readme.mjs` to regenerate README → commit → push → PR; the rule lives in the plugin directory). 「Analyze PR rules」fetches the repo's README/CONTRIBUTING/PR template/package.json and has the **DSH default model** figure out how to PR to that repo, then caches the structured step rule to the plugin directory `rules/<owner>__<repo>.json` — next time it runs straight from cache with **no AI spend** (「Re-analyze (ignore cache)」forces a fresh pass). 「Generate PR content」produces title/description/entry-file content from the rule template (preset templates can be filled with **zero AI spend** and remain editable); **it is editable and never submitted directly**. 「Run PR」executes `fork → clone fork → add upstream → fetch → create branch → write entry → regenerate README → commit → push → gh pr create` (Gitee via OpenAPI) with step-by-step logs and a PR link. Host routes: `GET /pr/targets`, `POST /pr/targets`, `POST /pr/rule`, `POST /pr/analyze`, `POST /pr/generate`, `POST /pr/execute`.
+- **⑥ Publish npm package**: a five-step wizard (`npm config get registry` → `npm config list` (token/auth/password redacted) → `npm whoami` → `npm pack --dry-run` → `npm publish`); the publish button needs an explicit confirmation checkbox. **The package directory is switchable** (with the same 「选择目录…」 button). **Not logged in / not configured is called out**: the panel shows the current registry and whoami; when logged out it offers 「Open a terminal to run npm login」 (host spawns a system terminal in the target dir, `POST /npm/login`) and 「Copy login command」; re-check after logging in. `GET /npm/status` also reports whether the directory exists and has a `package.json`, with matching warnings. Host routes: `GET /npm/status`, `POST /npm/step`, `POST /npm/login`.
+- **Host AI plumbing**: `llmComplete()` calls the DSH LLM runtime through `ctx.get('llm')`, resolving the default model from `ctx.get('settings').get('agent-default-model')` (falling back to parsing `~/.dsh/settings.yaml`), assembling `text-delta` chunks into the final text.
+- **Maintainability**: new i18n keys are merged via `Object.assign` into `EN_DICT` / `HOST_EN` without touching the original long dictionary lines; a shared `inputStyle()` helper was added; both halves pass `node --check`.
+- **Adversarial-review fixes (same version)**:
+  - **Windows npm path with spaces broke ⑥**: the resolved npm path (e.g. `C:\Program Files\nodejs\npm.cmd`) was truncated to `'C:\Program' is not recognized` under shell mode. `run()` now quotes the executable path when it contains whitespace (path only; args still passed safely as an array); npm registry / whoami / version verified live.
+  - **「Re-analyze (ignore cache)」was a no-op**: `/pr/analyze` never forwarded `force` to the analysis flow, so the button always hit the cache. It now passes `body.force` through.
+  - **Dotted repo names mis-parsed**: `parseRepoUrl` truncated `owner/my.repo` to `my` (the regex excluded dots). It now allows dots and only strips a trailing `.git`.
+  - **Hardened PR rule execution**: rules come from AI/cache and are trusted by default. `safeEntryPath()` blocks entry-file path traversal (`..` / absolute paths) and `safeRegenerateCommand()` only allows a whitelist of build commands with no shell metacharacters — preventing a malicious repo's docs from steering the AI into dangerous auto-executed rules.
+  - **「Ensure fork」false-success log fixed**: a failed `gh repo fork` previously still showed ✅; it now reports success only on a real success or an "already exists" result.
+  - **Gitee repo list pagination**: `user/repos` defaults to 20 per page, so only the first 20 showed. It now pages at 100 per page (up to 10 pages ≈ 1000 repos, matching GitHub).
+  - `tools/smoke-test.mjs` extended to 31 cases (dotted repo names, path traversal, command whitelist, etc.) — all green; both halves pass `node --check`.
+- **Feedback refinements (same version)**:
+  - **④ Default clone dir changed to the user's home**: it previously defaulted to the DSH workspace, and a workspace whose folder is itself a repo was wrongly flagged as cloneable. It now defaults to `os.homedir()` and the "already exists" check additionally covers "basename of the base dir == repo name AND contains `.git`".
+  - **④⑥ Directory buttons match ③**: both the clone target and the npm package directory offer a 「选择目录…」(Choose directory…) button identical to ③ Code Management — type an absolute path or pop the native folder picker, and confirmed paths are remembered as custom dirs (not limited to inside the workspace).
+  - **⑤ Per-repo PR features**: entering a target repo URL automatically runs `GET /pr/rule` (cache only, no AI spend) — a rule shows its specific flow, otherwise a generic flow appears with a prompt to analyze; the awesome-dsh-plugin contribution rule is preset into the plugin `rules/` dir, so entering its official repo URL hits it directly.
+  - **⑥ Login/configuration guidance**: when `npm whoami` is not logged in, the panel warns clearly and offers 「Open a terminal to run npm login」 (`POST /npm/login`; Windows spawns `cmd /k`, other platforms fall back to common terminal emulators) or 「Copy login command」 — then just re-check to continue the publish flow.
+  - **⑤ Rule analysis accepts manual input**: clicking 「Analyze PR rules」 now expands an input panel — you can type the repo's PR rules yourself, or point to a rules file (local path / URL, e.g. a repo README); leave empty and AI auto-fetches the repo's docs (README/CONTRIBUTING/PR template) to analyze. When content is supplied, a **lean prompt** is used (faithfully organize only the user input, no doc fetching, no inventing — saving tokens), and the result is still cached in a structured form to the plugin `rules/` dir. If the repo already has a local rule, clicking 「Analyze PR rules」 first asks whether to re-analyze (choosing "no" does nothing).
+
+### v1.11.0 (history)
 This release focuses on the changed-files preview experience and Chinese-filename compatibility:
 
 - **New/untracked files are now viewable**: an untracked (新增) file row now shows「▸ 查看」and expands to display the file's full content (rendered as an "all added" diff; oversized files show the first 2000 lines with a truncation note, capped at 1 MB so huge files are never slurped into memory); an empty new file shows「（空文件）」.

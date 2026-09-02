@@ -2,11 +2,11 @@
 
 > [English](README.en.md) | 中文
 
-> 版本：**v1.11.0**　|　更新日志见文末「[版本历史](#版本历史)」
+> 版本：**v1.12.0**　|　更新日志见文末「[版本历史](#版本历史)」
 
 > **界面语言跟随 DSH 设置实时切换**：面板与 host 端消息自动使用 DSH 的语言（设置 → 通用 → 语言），中文 ↔ 英文即时生效，无需重启。
 
-> DSH Web GUI 源代码管理插件：把「环境检查 → SSH 配置 → 代码上传推送」整合进「代码管理」面板，支持 GitHub / Gitee 双平台，一键管理代码仓库。
+> DSH Web GUI 源代码管理插件：把「环境检查 → SSH 配置 → 代码上传推送 → 克隆仓库 → 提交 PR → 发布 npm 包」整合进「代码管理」面板，支持 GitHub / Gitee 双平台，一键管理代码仓库。
 
 > 入口位置自适应：**已安装 [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) 时**，「代码管理」作为它侧边栏的一个新 Tab 页面出现（全新侧边栏 Tab）；**未安装时**，「代码管理」按钮位于 DSH **右上角、常驻可见**——有会话时放在「Session 日志」旁边的右对齐列表里，无会话空态时改为一个固定在**右上角**的浮动按钮，点击后打开一个 **dsh-better-sidebar 外观的右侧集成面板**（推挤主内容区）。两种形态都复用同一套面板 UI。
 
@@ -19,7 +19,7 @@
 
 > 检测只是激活时一次内存读取（`ctx.get('betterSidebar')`），零 I/O、零网络，不影响 DSH 启动速度；两种形态间自动切换。未安装 better-sidebar 时入口常驻右上角（有会话=Session 日志旁，空态=固定右上角浮动按钮），空态/新对话也可见。
 
-面板分三步：
+面板分六步（①②③ 为核心三步，④⑤⑥ 为新扩展板块，默认折叠按需展开）：
 
 ### ① 环境检查
 - 显示**操作系统**（美化名：`Windows` / `macOS` / `Linux`，对应底层 Node 平台标识 `win32` / `darwin` / `linux`）
@@ -59,6 +59,21 @@
   - GitHub：`gh repo create --private|--public --source=. --push`
   - Gitee：用令牌调 Gitee OpenAPI `POST /user/repos` 建仓，再设置 SSH 远程 `git@gitee.com:<owner>/<name>.git` 并 `git push`（走 ② 已配的 SSH 密钥）
 - **>100MB 文件处理**：自动识别超过 100MB 单文件限制的文件——文件在一级子目录内则**忽略整个一级目录**（该文件夹为一整体），根目录独立文件则**忽略单个文件**；已存在于 `.gitignore` 的不重复添加，并显示「未上传原因」
+
+### ④ 克隆仓库（Clone）
+- 跟随 ② 平台：把已登录账号（GitHub 走 `gh`，Gitee 走 OpenAPI）名下**所有远程仓库**列出来，并自动标记本地是否已有同名 git 仓库（默认按「默认工作区 + 已登记工作区 + 自定义目录」判定）
+- **克隆到目录**：可选目标父目录（默认 = DSH 默认工作区），不选即克隆到默认位置；克隆走 SSH URL（`git@github.com:…` / `git@gitee.com:…`），成功后自动加入自定义目录列表，③ 里可直接选中
+- 列表里「本地已有」的仓库不可重复克隆，其余每个仓库一个「克隆」按钮
+
+### ⑤ 提交 PR（Pull Request）
+- **目标仓库记录到本地**：填写要提交 PR 的仓库网址（`https://github.com/owner/repo` / `owner/repo` 等）→ 记录到 `~/.dsh/storages/source-code-mgmt-pr-targets.json`（**不写入插件目录**）；已记录仓库以标签展示、点选回填、可删除
+- **AI 分析 PR 规则**：抓取目标仓库的 README / CONTRIBUTING / PR 模板 / package.json scripts，交给 DSH 默认模型**思考该仓库应如何 PR**（如 awesome-dsh-plugin 收录插件：新建 `data/plugins/<owner>__<repo>.yml`、重生成 README、满足 `dsh.bundle`/提交数/topic 等门槛），输出结构化的**步骤规则并缓存到插件目录 `rules/<owner>__<repo>.json`**——下次对同一仓库直接读缓存执行，**不再重复消耗 AI**；「重新分析（忽略缓存）」可强制重新思考
+- **AI 生成 PR 内容**：填插件信息（owner/repo、分类、中英描述）→ AI 按规则模板生成标题 + 描述 + 条目文件内容，**生成后可自由修改，绝不直接提交**
+- **执行 PR**：按规则步骤执行 `fork → 克隆 fork → 加 upstream → 拉取 → 建分支 → 写条目 → （重生成 README）→ 提交 → 推送 → 开 PR`（GitHub 走 `gh pr create`，Gitee 走 OpenAPI），逐步显示执行日志与 PR 链接；工作目录默认 = 默认工作区
+
+### ⑥ 发布 npm 包（npm publish）
+- 五步向导（在目标目录执行）：**① 确认源** `npm config get registry` → **② 查看认证配置** `npm config list`（自动脱敏 token/auth/password）→ **③ 验证身份** `npm whoami` → **④ 预览打包** `npm pack --dry-run`（先看会发布哪些文件，不真正打包发布）→ **⑤ 发布** `npm publish`
+- 发布前必须勾选「我已核对以上内容，确认发布到 npm registry」才可点「发布」，防止误操作
 
 ### 数据加载时机（打开时联网、显示刷新中）
 DSH 打开时**不联网同步仓库**，只预取静态的环境/SSH/工作区列表。**打开插件、切换工作区、刷新状态、以及推送/拉取/暂存/提交等操作后**，都会联网获取对应工作区的最新仓库状态，并显示「⟳ 刷新中…」提示——避免打开/重开/切换时显示可能过期的旧数据（如旧的「无改动」）。关闭面板再打开也会重新同步，不会停留在旧状态。
@@ -198,7 +213,38 @@ dsh plugin --profile web add link:$(pwd)
 
 ## 版本历史
 
-### v1.11.0（当前）
+### v1.13.0（当前）
+按第二轮反馈继续精化（④⑤⑥ 三处交互收敛）：
+
+- **④「本地已有」判定扩大到已登记的目录**：此前克隆列表只在「当前选中的克隆目录」下判定本地是否已有，用户若把克隆目录切到别处（如工作区 `workspace`），明明已存在的仓库仍标「可克隆」。现在新增 `localRepoExistsAnywhere()`：除了当前选中目录，还会遍历 ③ 代码管理登记过的**所有工作区 / 自定义目录**（`~/.dsh/storages/workspace.json` + `source-code-mgmt-dirs.json`）逐一判定——任一被登记的位置已有同名仓库即标「本地已有」；克隆成功后目标目录本就会记入自定义目录，因此「某位置已有该仓库」的知识会自动沉淀下来，下次列表直接命中。
+- **④ 新增「按仓库地址克隆到任意位置」**：克隆板块底部新增一行——粘贴任意 git 仓库地址（HTTPS 或 SSH，GitHub / Gitee / 自建均可）+ 选择目标目录，自动从 URL 末段推导仓库名（去掉 `.git`）并 `POST /clone/run` 克隆到所选位置；复用「选择目录…」按钮（可输入绝对路径或弹系统文件夹选择器，确认后记住到自定义目录）。目标目录默认沿用顶部下拉，未选择时给出提示。
+- **⑥ 发布 npm：目标目录默认留空**：此前默认回填默认工作区，用户不选就可能发布到非预期目录。现在目标目录**默认留空**，界面提示「当前留空，不会自动使用默认目录」；未选目录时「重新检查 / 登录 / 执行」按钮全部禁用并拦截，用户必须手动选择（同 ③/④ 的「选择目录…」按钮）。
+- **⑤ 收敛为「提交 awesome-dsh-plugin 插件收录 PR」**：按你要求先只保留「awesome-dsh-plugin 插件收录 PR」这最常用的一条路——隐藏「目标仓库地址」输入框、隐藏「记录到本地 / 已记录」行与标签、隐藏「分析 PR 规则 / 重新分析（忽略缓存）」按钮与手填规则面板、隐藏通用 PR 流程兜底框；目标仓库锁定为 `https://github.com/awesome-dsh-plugin/awesome-dsh-plugin`，挂载时只读加载一次其**预置收录规则**（不消耗 AI）并展示加载状态。保留下部：插件信息（名称/分类/描述 en/zh）→「生成 PR 内容（AI）」（命中预置模板可免 AI 填充、仍可编辑）→ 可编辑的标题/描述/条目文件内容 + 工作目录 →「执行 PR」（逐步日志 + PR 链接）。host 端 `/pr/analyze`、`/pr/targets` 等路由与预置规则文件保持不变，仅前端做了收敛。
+
+### v1.12.0（历史）
+本次更新（新增④克隆 / ⑤提交 PR / ⑥发布 npm 三大板块）：
+
+- **④ 克隆仓库**：列出已登录账号（GitHub `gh repo list` / Gitee OpenAPI `user/repos`）名下所有远程仓库并标记本地是否已有；**默认目标目录 = 用户主目录（home）**，不选即克隆到 home；每一行目录都有与 ③ 代码管理一致的「选择目录…」按钮（输入绝对路径或系统文件夹选择器，确认后记住到自定义目录）；克隆走 SSH URL，成功后自动加入自定义目录列表。host 新增 `GET /clone/default-dir`、`GET /clone/home`、`GET /clone/repos`、`POST /clone/run`；本地已存在判定同时覆盖「目录名 == 仓库名且含 .git」的场景
+- **⑤ 提交 PR**：目标仓库网址记录到 `~/.dsh/storages/source-code-mgmt-pr-targets.json`（**不写入插件目录**）；**输入网址即自动读取该仓库的本地规则**（`GET /pr/rule`，只读缓存、不消耗 AI）：命中预置/缓存规则就显示对应专属 PR 功能，未命中则显示通用流程并提示「分析 PR 规则」；**预置 `rules/awesome-dsh-plugin__awesome-dsh-plugin.json`**——输入 `https://github.com/awesome-dsh-plugin/awesome-dsh-plugin` 直接给出它的收录规则（fork → clone → 在 `data/plugins/<owner>__<repo>.yml` 写条目 → `npm ci && node scripts/generate-readme.mjs` 重生成 README → commit → push → PR，规则写在插件目录）；「分析 PR 规则」抓取目标仓库 README/CONTRIBUTING/PR 模板/package.json 交给 **DSH 默认模型**思考该仓库应如何 PR，输出结构化步骤规则并**缓存到插件目录 `rules/<owner>__<repo>.json`**（下次直接执行、不再消耗 AI；「重新分析（忽略缓存）」可强制重想）；「生成 PR 内容」按规则模板产出标题/描述/条目文件内容（带预置模板时可免 AI 直接填充、仍可编辑），**生成后可改、绝不直接提交**；「执行 PR」按 `fork→clone→加 upstream→fetch→建分支→写条目→重生成 README→commit→push→gh pr create（Gitee 走 OpenAPI）` 逐步执行并显示日志与 PR 链接。host 新增 `GET /pr/targets`、`POST /pr/targets`、`POST /pr/rule`、`POST /pr/analyze`、`POST /pr/generate`、`POST /pr/execute`
+- **⑥ 发布 npm 包**：五步向导（`npm config get registry` → `npm config list`（脱敏 token/auth/password）→ `npm whoami` → `npm pack --dry-run` → `npm publish`），发布前需勾选确认；**可切换包目录**（同样带「选择目录…」按钮）；**未登录/未配置时明确提示**：显示当前 registry / whoami，未登录给出「打开终端执行 npm login」（host 弹系统终端、进入目标目录执行，`POST /npm/login`）与「复制登录命令」，登完回面板点「重新检查」；`GET /npm/status` 会报告目录是否存在、是否含 `package.json` 并给出对应警告。host 新增 `GET /npm/status`、`POST /npm/step`、`POST /npm/login`
+- **host 端 AI 能力**：新增 `llmComplete()`——通过 `ctx.get('llm')` 调 DSH 的 LLM 运行时，默认模型取 `ctx.get('settings').get('agent-default-model')`（兜底解析 `~/.dsh/settings.yaml`），消息格式适配 `GenerateOptions`（text-delta 组装）
+- **维护性**：新增 i18n 键通过 `Object.assign` 并入 `EN_DICT` / `HOST_EN`，不改动原超长字典行；新增 `inputStyle()` 共享输入框样式；`node --check` 双端通过
+- **对抗式审查修复（同版本内）**：
+  - **修复 Windows npm 路径含空格导致 ⑥ 不可用**：npm 解析路径（如 `C:\Program Files\nodejs\npm.cmd`）含空格时，shell 模式会把命令截断成 `'C:\Program' 不是内部命令`。`run()` 现对含空格的可执行文件路径加引号包裹（只包裹路径本身，参数仍按数组安全传递），npm registry / whoami / version 实测通过；
+  - **修复「重新分析（忽略缓存）」失效**：`/pr/analyze` 路由此前未把 `force` 传给分析流程，导致该按钮永远走缓存。现已透传 `body.force`；
+  - **修复点号仓库名解析**：`parseRepoUrl` 此前把 `owner/my.repo` 截断成 `my`（正则排除点号），现允许点号、仅剥离尾部 `.git`；
+  - **安全加固 PR 规则执行**：规则来自 AI/缓存、默认受信任，新增 `safeEntryPath()` 拦截条目文件路径穿越（`..` / 绝对路径），`safeRegenerateCommand()` 只放行白名单构建命令并拒绝 shell 元字符——防止恶意仓库文档诱导 AI 产出危险规则后自动执行；
+  - **修复「确保 fork」日志假成功**：GitHub `gh repo fork` 失败时此前仍显示 ✅，现仅在真实成功或「already exists」时显示成功；
+  - **Gitee 仓库列表分页**：`user/repos` 默认每页 20，此前只列前 20 个；现按每页 100 分页拉全（上限 10 页 ≈ 1000 个，与 GitHub 对齐）；
+  - 扩展 `tools/smoke-test.mjs` 至 31 项（覆盖点号仓库名、路径穿越、命令白名单等边界），全绿；`node --check` 双端通过
+- **按反馈完善（同版本内）**：
+  - **④ 默认克隆目录改为用户主目录**：此前默认是 DSH 工作区，且「工作区目录本身就是仓库」时被误标为可克隆；现默认改为 `os.homedir()`（Windows 为 `C:\Users\<用户名>`，Linux/macOS 为用户主目录），本地已存在判定补上「基目录名 == 仓库名 且含 `.git`」；
+  - **④⑥ 目录选择按钮与 ③ 一致**：克隆目标与 npm 包目录都提供「选择目录…」按钮，行为与 ③ 代码管理相同（可输入绝对路径或弹出系统文件夹选择器，确认后记住到自定义目录），不再局限于工作区内；
+  - **⑤ 按仓库显示对应 PR 功能**：输入目标仓库网址后自动 `GET /pr/rule` 读缓存规则（不消耗 AI）——有规则显示专属流程、无规则显示通用流程并提示分析；预置 awesome-dsh-plugin 收录规则（写入插件目录 `rules/`），输入官方仓库网址即命中；
+  - **⑥ 未登录/未配置时引导登录**：`npm whoami` 未登录时面板给出明确警告，可一键弹出系统终端执行 `npm login`（`POST /npm/login`，Windows 用 `cmd /k`、其他平台回退常见终端模拟器）或复制登录命令，完成后「重新检查」即可继续发布流程；
+  - **⑤ 分析 PR 规则可手动输入规则来源**：点击「分析 PR 规则」展开输入面板——可手动填写该仓库的 PR 规则文本，或提供规则文件（本地路径 / URL，如某仓库 README），留空则由 AI 自动抓取仓库文档（README/CONTRIBUTING/PR 模板）分析；提供内容时走**精简提示词**（只忠实整理用户输入、不抓文档、不编造，节省 token），结果同样结构化缓存到插件目录 `rules/`；仓库已有本地规则时点击「分析 PR 规则」会先询问「是否重新分析」（选否则不做任何事）。
+
+### v1.11.0（历史）
 本次更新（改动文件查看体验 + 中文文件名兼容性）：
 
 - **新增/untracked 文件现在可以查看内容**：改动列表里「新增」文件行也显示「▸ 查看」，点击展开显示完整文件内容（按「全部新增」的 diff 渲染，超大文件只显示前 2000 行并附截断提示，上限 1MB 不会整读进内存）；空的新文件显示「（空文件）」。
