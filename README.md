@@ -6,7 +6,7 @@
 
 > **界面语言跟随 DSH 设置实时切换**：面板与 host 端消息自动使用 DSH 的语言（设置 → 通用 → 语言），中文 ↔ 英文即时生效，无需重启。
 
-> DSH Web GUI 源代码管理插件：把「环境检查 → SSH 配置 → 代码上传推送 → 克隆仓库 → 提交 PR → 发布 npm 包」整合进「代码管理」面板，支持 GitHub / Gitee 双平台，一键管理代码仓库。
+> DSH Web GUI 源代码管理插件：把「环境检查 → SSH 配置 → 代码上传推送 → 克隆仓库 → 发布 npm 包」整合进「代码管理」面板，支持 GitHub / Gitee 双平台，一键管理代码仓库。
 
 > 入口位置自适应：**已安装 [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) 时**，「代码管理」作为它侧边栏的一个新 Tab 页面出现（全新侧边栏 Tab）；**未安装时**，「代码管理」按钮位于 DSH **右上角、常驻可见**——有会话时放在「Session 日志」旁边的右对齐列表里，无会话空态时改为一个固定在**右上角**的浮动按钮，点击后打开一个 **dsh-better-sidebar 外观的右侧集成面板**（推挤主内容区）。两种形态都复用同一套面板 UI。
 
@@ -19,7 +19,7 @@
 
 > 检测只是激活时一次内存读取（`ctx.get('betterSidebar')`），零 I/O、零网络，不影响 DSH 启动速度；两种形态间自动切换。未安装 better-sidebar 时入口常驻右上角（有会话=Session 日志旁，空态=固定右上角浮动按钮），空态/新对话也可见。
 
-面板分六步（①②③ 为核心三步，④⑤⑥ 为新扩展板块，默认折叠按需展开）：
+面板分五步（①②③ 为核心三步，④⑤ 为新扩展板块，默认折叠按需展开）：
 
 ### ① 环境检查
 - 显示**操作系统**（美化名：`Windows` / `macOS` / `Linux`，对应底层 Node 平台标识 `win32` / `darwin` / `linux`）
@@ -65,13 +65,7 @@
 - **克隆到目录**：可选目标父目录（默认 = DSH 默认工作区），不选即克隆到默认位置；克隆走 SSH URL（`git@github.com:…` / `git@gitee.com:…`），成功后自动加入自定义目录列表，③ 里可直接选中
 - 列表里「本地已有」的仓库不可重复克隆，其余每个仓库一个「克隆」按钮
 
-### ⑤ 提交 PR（Pull Request）
-- **目标仓库记录到本地**：填写要提交 PR 的仓库网址（`https://github.com/owner/repo` / `owner/repo` 等）→ 记录到 `~/.dsh/storages/source-code-mgmt-pr-targets.json`（**不写入插件目录**）；已记录仓库以标签展示、点选回填、可删除
-- **AI 分析 PR 规则**：抓取目标仓库的 README / CONTRIBUTING / PR 模板 / package.json scripts，交给 DSH 默认模型**思考该仓库应如何 PR**（如 awesome-dsh-plugin 收录插件：新建 `data/plugins/<owner>__<repo>.yml`、重生成 README、满足 `dsh.bundle`/提交数/topic 等门槛），输出结构化的**步骤规则并缓存到插件目录 `rules/<owner>__<repo>.json`**——下次对同一仓库直接读缓存执行，**不再重复消耗 AI**；「重新分析（忽略缓存）」可强制重新思考
-- **AI 生成 PR 内容**：填插件信息（owner/repo、分类、中英描述）→ AI 按规则模板生成标题 + 描述 + 条目文件内容，**生成后可自由修改，绝不直接提交**
-- **执行 PR**：按规则步骤执行 `fork → 克隆 fork → 加 upstream → 拉取 → 建分支 → 写条目 → （重生成 README）→ 提交 → 推送 → 开 PR`（GitHub 走 `gh pr create`，Gitee 走 OpenAPI），逐步显示执行日志与 PR 链接；工作目录默认 = 默认工作区
-
-### ⑥ 发布 npm 包（npm publish）
+### ⑤ 发布 npm 包（npm publish）
 - 五步向导（在目标目录执行）：**① 确认源** `npm config get registry` → **② 查看认证配置** `npm config list`（自动脱敏 token/auth/password）→ **③ 验证身份** `npm whoami` → **④ 预览打包** `npm pack --dry-run`（先看会发布哪些文件，不真正打包发布）→ **⑤ 发布** `npm publish`
 - 发布前必须勾选「我已核对以上内容，确认发布到 npm registry」才可点「发布」，防止误操作
 
@@ -213,7 +207,18 @@ dsh plugin --profile web add link:$(pwd)
 
 ## 版本历史
 
-### v1.13.0（当前）
+### v1.14.0（当前）
+按你的要求**移除了 ⑤「提交 PR」功能**：
+
+- **前端**：`lib/client.js` 删除整个 `PrSection`（含 ⑤ 区块的渲染与面板导语中的「⑤提交 PR」文案），一并清理了对应的 i18n 键（`EN_DICT`）。
+- **host**：`lib/index.js` 删除整套 PR 实现——`/pr/targets`、`/pr/rule`、`/pr/analyze`、`/pr/generate`、`/pr/execute` 五个路由，`prAnalyzeFlow` / `prGenerateFlow` / `prExecuteFlow`，PR 目标仓库本地存储（`source-code-mgmt-pr-targets.json`）、PR 规则缓存读写（`rules/` 下的 `readPrRule`/`writePrRule` 等）、`parseRepoUrl`、`fillPrTemplate`、安全校验（`safeEntryPath` / `safeRegenerateCommand`）、`PRESET_PR_RULES` 与启动时的规则预置写入。
+- 保留 `llmComplete()` 这一通用 LLM 调用助手（与 PR 无关，属可复用能力，本轮暂未用到可直接忽略）。
+- 版本号 1.13.0 → 1.14.0；`package.json` 描述同步去掉「AI-assisted Pull Requests」。克隆板块的「按地址克隆」「本地已有判定」与 ⑥ npm（默认空目录）等仍保持 v1.13.0 行为不变。
+- 变更范围：`lib/client.js`（刷新即生效）、`lib/index.js`（需重启 dsh web）。
+
+> 说明：`rules/` 目录下旧预置文件 `rules/awesome-dsh-plugin__awesome-dsh-plugin.json` 已不再被任何代码引用，可自行删除或保留（不影响功能）。
+
+### v1.13.0（历史）
 按第二轮反馈继续精化（④⑤⑥ 三处交互收敛）：
 
 - **④「本地已有」判定扩大到已登记的目录**：此前克隆列表只在「当前选中的克隆目录」下判定本地是否已有，用户若把克隆目录切到别处（如工作区 `workspace`），明明已存在的仓库仍标「可克隆」。现在新增 `localRepoExistsAnywhere()`：除了当前选中目录，还会遍历 ③ 代码管理登记过的**所有工作区 / 自定义目录**（`~/.dsh/storages/workspace.json` + `source-code-mgmt-dirs.json`）逐一判定——任一被登记的位置已有同名仓库即标「本地已有」；克隆成功后目标目录本就会记入自定义目录，因此「某位置已有该仓库」的知识会自动沉淀下来，下次列表直接命中。

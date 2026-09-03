@@ -11,7 +11,7 @@ for (const m of src.matchAll(/tr\(\s*'((?:[^'\\]|\\.)*)'/g)) used.add(m[1])
 const dict = new Set()
 const start = src.indexOf('const HOST_EN = {')
 // include everything up to the requestLangStore + Object.assign block (before llmComplete section)
-const end = src.indexOf('// ---------- ④ 克隆远程仓库 / ⑤ 提交 PR / ⑥ 发布 npm 包')
+const end = src.indexOf('// ---------- ④ 克隆远程仓库 / ⑤ 发布 npm 包')
 const objText = src.slice(start, end)
 for (const m of objText.matchAll(/"((?:[^"\\]|\\.)*)"\s*:/g)) dict.add(m[1])
 

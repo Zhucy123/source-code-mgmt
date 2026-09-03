@@ -1,6 +1,6 @@
 # source-code-mgmt — DSH Source Code Management Plugin
 
-> Version: **v1.13.0**　|　中文版见 [README.md](README.md)
+> Version: **v1.14.0**　|　中文版见 [README.md](README.md)
 
 > A source-code management plugin for the DSH Web GUI: it bundles「environment check → SSH setup → commit/push/upload code」into one「Code Management」panel with GitHub / Gitee dual-platform support.
 
@@ -19,7 +19,7 @@ Entry points (auto-detected, no manual switching):
 
 > Detection is a single in-memory read at activation time (`ctx.get('betterSidebar')`) — zero I/O, zero network, no impact on DSH startup.
 
-The panel has six steps (①②③ are the core three; ④⑤⑥ are the newer extensions, collapsed by default):
+The panel has five steps (①②③ are the core three; ④⑤ are the newer extensions, collapsed by default):
 
 ### ① Environment Check
 - Shows the **OS** (friendly names `Windows` / `macOS` / `Linux`, from the underlying `win32` / `darwin` / `linux` platform ids)
@@ -59,13 +59,7 @@ The panel has six steps (①②③ are the core three; ④⑤⑥ are the newer e
 - **Clone into**: optional target parent directory (default = DSH's default workspace; leave empty to clone to the default location); cloning uses the SSH URL and auto-adds the clone to the custom-directory list so ③ can select it directly
 - Repos already present locally can't be re-cloned; every other repo has a「克隆」(clone) button
 
-### ⑤ Pull Request
-- **Target repo recorded locally**: paste the repo URL you want to PR to (`https://github.com/owner/repo`, `owner/repo`, …) → saved to `~/.dsh/storages/source-code-mgmt-pr-targets.json` (**not** the plugin directory); saved repos appear as removable chips and can be re-selected
-- **AI PR-rule analysis**: fetches the target repo's README / CONTRIBUTING / PR template / package.json scripts and has the **DSH default model** figure out how to PR to that repo (e.g. awesome-dsh-plugin: create `data/plugins/<owner>__<repo>.yml`, regenerate the README, satisfy the `dsh.bundle`/commit-count/topic gates), producing a structured **step rule cached in the plugin directory `rules/<owner>__<repo>.json`** — the next PR to the same repo runs straight from cache, **no repeated AI spend**;「Re-analyze (ignore cache)」forces a fresh pass
-- **AI PR-content generation**: fill in the plugin info (owner/repo, category, en/zh description) → AI builds the title + description + entry-file content from the rule template — **fully editable, never submitted directly**
-- **Run PR**: executes the rule steps `fork → clone fork → add upstream → fetch → create branch → write entry → (regenerate README) → commit → push → create PR` (GitHub via `gh pr create`, Gitee via OpenAPI) with per-step logs and the PR link; working dir defaults to the default workspace
-
-### ⑥ Publish npm package
+### ⑤ Publish npm package
 - Five-step wizard (run in the target directory): **① check registry** `npm config get registry` → **② view auth config** `npm config list` (auto-redacts token/auth/password) → **③ verify identity** `npm whoami` → **④ preview packed files** `npm pack --dry-run` (see exactly what would be published, nothing is packed or uploaded) → **⑤ publish** `npm publish`
 - Publishing requires ticking「I've reviewed the above — confirm publishing to the npm registry」first, preventing accidental publishes
 
@@ -212,7 +206,18 @@ dsh plugin --profile web add link:$(pwd)
 
 ## Version history
 
-### v1.13.0 (current)
+### v1.14.0 (current)
+Per your request the **⑤ "Submit PR" feature has been removed**:
+
+- **Front-end**: `lib/client.js` drops the whole `PrSection` (its render in the panel and the "⑤ Submit PR" mention in the panel intro), along with the now-unused `EN_DICT` PR keys.
+- **Host**: `lib/index.js` removes the entire PR implementation — the `/pr/targets`, `/pr/rule`, `/pr/analyze`, `/pr/generate`, `/pr/execute` routes; `prAnalyzeFlow` / `prGenerateFlow` / `prExecuteFlow`; the PR-targets local store (`source-code-mgmt-pr-targets.json`); the PR-rule cache read/write under `rules/` (`readPrRule`/`writePrRule`, etc.); `parseRepoUrl`; `fillPrTemplate`; the safety checks (`safeEntryPath`/`safeRegenerateCommand`); `PRESET_PR_RULES` and the startup rule-seeding call.
+- `llmComplete()` (the generic LLM helper) is kept — it is independent of PR and reusable.
+- Version bumped 1.13.0 → 1.14.0; `package.json` description now drops "AI-assisted Pull Requests". The clone section (by-URL clone, local-exists detection) and ⑥ npm (empty-by-default dir) keep their v1.13.0 behavior unchanged.
+- Scope: `lib/client.js` (refresh to apply), `lib/index.js` (restart dsh web).
+
+> Note: the old `rules/awesome-dsh-plugin__awesome-dsh-plugin.json` preset is no longer referenced by any code — you may delete it or leave it (it doesn't affect anything).
+
+### v1.13.0 (history)
 Second feedback pass (④⑤⑥ interaction tightening):
 
 - **④ "Already local" detection widened to registered dirs**: previously the clone list only checked under the currently-selected clone dir; if you switched the clone target elsewhere (e.g. the `workspace` dir) where a repo already existed, it still showed "cloneable". Now a new `localRepoExistsAnywhere()` checks the selected dir **plus every workspace / favorite dir registered by step ③** (from `~/.dsh/storages/workspace.json` + `source-code-mgmt-dirs.json`) — a repo present in any registered location is marked "Already local". Since clone success already records the destination into favorite dirs, "this location already has the repo" knowledge persists automatically and the list hits on it next time.
