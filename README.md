@@ -2,7 +2,7 @@
 
 > [English](README.en.md) | 中文
 
-> 版本：**v1.12.0**　|　更新日志见文末「[版本历史](#版本历史)」
+> 版本：**v1.15.0**　|　更新日志见文末「[版本历史](#版本历史)」
 
 > **界面语言跟随 DSH 设置实时切换**：面板与 host 端消息自动使用 DSH 的语言（设置 → 通用 → 语言），中文 ↔ 英文即时生效，无需重启。
 
@@ -25,7 +25,14 @@
 - 显示**操作系统**（美化名：`Windows` / `macOS` / `Linux`，对应底层 Node 平台标识 `win32` / `darwin` / `linux`）
 - 自动检测 **Git**、**GitHub CLI** 是否安装及版本（如 `git version 2.55.0`、`gh version 2.97.0`）
 - 检测 **SSH** 客户端是否可用（解析到可用 `ssh` 即显示「已找到」）
-- **缺工具时给安装指引 + 一键安装**：某工具未找到时，该行显示「❌ 未安装」+「**复制安装命令**」+「**安装**」按钮——「安装」走 host 自动选包管理器执行（Windows 用 winget / 内置功能、macOS 用 brew、Linux 用 apt/dnf/pacman，可能需管理员权限），安装后自动重新检测；也可点「复制安装命令」手动执行
+- **缺工具时给安装指引 + 一键安装（按平台自适应、尽量免 sudo）**：某工具未找到时，该行显示「❌ 未安装」+「**复制安装命令**」+「**安装**」按钮：
+  - **GitHub CLI（Linux / macOS）**：**免 sudo 用户级安装**——从官方 GitHub Release 下载对应平台/架构的二进制包，解压后装到 `~/.local/bin/gh`（目录不存在会自动创建，全程不需要管理员权限）；失败时自动回退系统包管理器。
+  - **Git（Linux）**：apt / dnf / pacman（自动带 `sudo -n`；**先探测 sudo 是否免密**，需要密码时不再盲目执行，而是给出「请在终端手动执行」的指引 + 完整命令）。**Git（macOS）**：brew，无 brew 时走 **Xcode 命令行工具**（`xcode-select --install`，系统自带安装，含 git/ssh）。
+  - **SSH（Windows）**：内置可选功能（需管理员）；**SSH（Linux）**：apt / dnf / pacman 的 openssh-client（同上 sudo 探测）；**macOS** 系统自带。
+  - **复制安装命令**与「安装」按钮**走同一套平台自适应逻辑**（不再固定显示 Windows 的 winget 命令）。
+- **安装过程实时进度弹窗**：点「安装」后弹出进度窗口，逐步显示「查询最新版本 → 下载 → 解压 → 安装 → 清理」及实时输出；完成后显示成功/失败原因。
+- **需要重启时提示并一键重启**：检测到安装后当前 host 进程无法立即识别（如 gh 装到了不在 PATH 的 `~/.local/bin`）时，弹窗提示并显示「**重启 DSH**」按钮——点击后 host 通过 detached 辅助进程按原启动命令自动拉起新进程（机制同 dsh-update），页面短暂断开后刷新即可；若 host 已能识别（如设置了 `DSH_SCM_GH` 或 `~/.local/bin` 在 PATH），则不打扰直接完成。
+- 安装完成后自动重新检测。
 
 ### ② SSH 密钥与连接
 - **平台选择**：下拉选择代码托管平台 **GitHub（默认）** / **Gitee**，决定下面的 SSH 配置写入与连接测试目标
@@ -144,7 +151,8 @@ dsh web
 | 路由 | 方法 | 说明 |
 |------|------|------|
 | `/api/source-code-mgmt/env` | GET | 环境检查（git/gh 版本） |
-| `/api/source-code-mgmt/install-tool` | POST | 一键安装缺失工具（body `tool`: `git`/`gh`/`ssh`，按平台自动选包管理器） |
+| `/api/source-code-mgmt/install-tool` | POST | 一键安装缺失工具（body `tool`: `git`/`gh`/`ssh`，按平台自适应：gh 在 Linux/macOS 免 sudo 装到 `~/.local/bin`；git/ssh 走系统包管理器 / brew / Xcode CLT / winget；响应为 **NDJSON 事件流**：`step`/`out`/`result`，供进度弹窗实时展示） |
+| `/api/source-code-mgmt/restart` | POST | 一键重启 dsh（detached helper 按原启动命令拉起新进程；严格 loopback + origin 同源校验；supervisor 托管时禁用） |
 | `/api/source-code-mgmt/ssh` | GET | SSH 密钥 / config / gh 登录状态 |
 | `/api/source-code-mgmt/gen-key` | POST | 生成 ed25519 密钥 |
 | `/api/source-code-mgmt/write-config` | POST | 写入 SSH config（body `provider`: `github` 默认 / `gitee`） |
@@ -191,7 +199,7 @@ dsh web
 - 如需手动指定二进制路径，可用环境变量覆盖：`DSH_SCM_GIT` / `DSH_SCM_GH` / `DSH_SCM_SSH` / `DSH_SCM_SSH_KEYGEN`
 - **SSH 传输修复**：Git for Windows 自带的 MSYS `ssh.exe`（`usr\bin\ssh.exe`）在被 detached/agent 进程调用时可能报 `couldn't create signal pipe, Win32 error 5`，导致 `git push`/`git pull` 失败。插件执行 git 远程命令时会自动注入 `GIT_SSH` 指向解析到的可用 `ssh`（通常为系统 OpenSSH `C:\Windows\System32\OpenSSH\ssh.exe`），避免该问题。
 - **中文文件名兼容**：git 默认 `core.quotepath` 会把含非 ASCII 字节的路径输出成八进制转义的引号串（显示为乱码）。插件对所有 git 调用统一注入 `-c core.quotepath=false`（直接输出原始 UTF-8 路径），并对仍带引号转义的路径做 `parseGitPath()` 反转义兜底——改动列表 / diff 里的中文文件名显示正常
-- **缺工具一键安装跨平台**：Windows 用 winget / 内置功能（回退 choco/scoop），macOS 用 brew，Linux 用 apt-get / dnf / pacman（自动带 `sudo -n`；已是 root 则省略）。SSH 密钥探测、本地 Git 工作流、并排 diff 等在三个平台行为一致；「浏览目录」的原生选择器仅 Windows 可用，macOS/Linux 上请在输入框直接填路径（可手动输入粘贴）。
+- **缺工具一键安装跨平台（v1.15.0 起按平台自适应、尽量免 sudo）**：GitHub CLI 在 Linux/macOS 直接**免 sudo 用户级安装**（官方二进制 → `~/.local/bin/gh`，失败回退系统包管理器）；git/ssh 在 Linux 走 apt-get / dnf / pacman（**先探测 sudo 免密**，需要密码时给出手动命令指引而非静默失败），macOS 走 brew / Xcode 命令行工具，Windows 走 winget / 内置功能（回退 choco/scoop）。安装过程有**实时进度弹窗**，需要重启时提供**一键重启 dsh**。SSH 密钥探测、本地 Git 工作流、并排 diff 等在三个平台行为一致；「浏览目录」的原生选择器仅 Windows 可用，macOS/Linux 上请在输入框直接填路径（可手动输入粘贴）。
 
 ## 开发
 
@@ -207,7 +215,19 @@ dsh plugin --profile web add link:$(pwd)
 
 ## 版本历史
 
-### v1.14.0（当前）
+### v1.15.0（当前）
+一键安装全面升级：**平台自适应 + 尽量免 sudo + 实时进度 + 一键重启**。
+
+- **修复「复制安装命令」在 Linux/macOS 上错误显示 winget**：客户端写死的 Windows 提示改为取 host `/env` 返回的 `installHints`（与「安装」按钮同一套平台自适应逻辑）；非 Windows 且无可用方式时留空，不再误导。
+- **GitHub CLI（Linux/macOS）改免 sudo 用户级安装**：`installCommand()` 对 gh 优先返回官方二进制下载脚本（查最新版本 → 按平台/架构下载 `gh_<ver>_linux_amd64` / `macOS_arm64` 等 → 解压 → 装到 `~/.local/bin/gh`），一键安装失败自动回退系统包管理器。`resolveBin` 新增 `~/.local/bin` 探测——**插件加载时即使 PATH 里没有该目录也能找到用户级 gh**（不再依赖改 PATH / 设环境变量）。
+- **sudo 免密探测（Linux）**：`canSudo()` 用 `sudo -n true` 探测；需要密码时**不再盲目执行**（`-n` 必然失败），返回「请在终端手动执行：<命令>」指引 + 原因，配合复制按钮即可完成。
+- **macOS 兜底**：git/ssh 无 brew 时走 **Xcode 命令行工具**（`xcode-select --install`，系统自带安装、含 git/ssh），弹窗以「⏳ 已触发，按系统提示完成后点重新检查」呈现。
+- **安装后实测复查**：`toolInstalled()` 改为按当前 PATH/落点直接探测（git/ssh 走 `--version`、gh 走 `~/.local/bin` 优先），**不再依赖模块加载时缓存的历史解析结果**——装完立即识别，修掉「装好了还报失败」的隐患。
+- **安装进度弹窗**：`/install-tool` 改为 **NDJSON 事件流**（`step`/`out`/`result`，`runLive()` spawn 流式转发），浏览器端 `jpostStream()` 逐行消费；弹窗逐步显示「▶ 查询最新版本 → 下载 → 解压 → 安装 → 清理」与实时输出尾部。
+- **需要重启时提示 + 一键重启**：`restartNeededFor()` 智能判定（`DSH_SCM_GH` 显式指定或 `~/.local/bin` 在 PATH 时无需重启）；需要时弹窗显示「**重启 DSH**」按钮——新增 `POST /restart` 路由（机制同 dsh-update：detached helper 等端口释放后按原启动命令拉起新进程，POSIX detached spawn / Windows PowerShell 隐藏窗口；严格 loopback + origin 同源校验；systemd supervisor 托管或 `DSH_SCM_RESTART=0` 时禁用），点击后页面短暂断开、新进程自动起来。
+- 变更范围：`lib/index.js`（需重启 dsh web）、`lib/client.js`（刷新即生效）。版本号 1.14.0 → 1.15.0。
+
+### v1.14.0（历史）
 按你的要求**移除了 ⑤「提交 PR」功能**：
 
 - **前端**：`lib/client.js` 删除整个 `PrSection`（含 ⑤ 区块的渲染与面板导语中的「⑤提交 PR」文案），一并清理了对应的 i18n 键（`EN_DICT`）。

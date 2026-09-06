@@ -1,6 +1,6 @@
 # source-code-mgmt — DSH Source Code Management Plugin
 
-> Version: **v1.14.0**　|　中文版见 [README.md](README.md)
+> Version: **v1.15.0**　|　中文版见 [README.md](README.md)
 
 > A source-code management plugin for the DSH Web GUI: it bundles「environment check → SSH setup → commit/push/upload code」into one「Code Management」panel with GitHub / Gitee dual-platform support.
 
@@ -25,7 +25,14 @@ The panel has five steps (①②③ are the core three; ④⑤ are the newer ext
 - Shows the **OS** (friendly names `Windows` / `macOS` / `Linux`, from the underlying `win32` / `darwin` / `linux` platform ids)
 - Detects **Git** and **GitHub CLI** presence and versions (e.g. `git version 2.55.0`, `gh version 2.97.0`)
 - Detects whether an **SSH** client is available
-- **Missing tools → install guidance + one-click install**: when a tool is missing, the row shows「❌ 未安装」+「复制安装命令」(copy install command) +「安装」(install) — install picks the package manager automatically (winget / built-in features on Windows, brew on macOS, apt/dnf/pacman on Linux, may need admin rights) and re-detects afterwards
+- **Missing tools → adaptive install guidance + one-click install (mostly sudo-free)**: when a tool is missing, the row shows「❌ 未安装」+「复制安装命令」(copy install command) +「安装」(install):
+  - **GitHub CLI (Linux / macOS)**: **user-level install without sudo** — downloads the official binary for the current platform/architecture from GitHub Releases, extracts it and installs to `~/.local/bin/gh` (the directory is created if missing; no admin rights needed); falls back to the system package manager on failure.
+  - **Git (Linux)**: apt / dnf / pacman (auto `sudo -n`; **passwordless sudo is probed first** — when a password is required the panel does not run a doomed command, it shows "run this manually in a terminal" guidance with the exact command). **Git (macOS)**: brew, or **Xcode Command Line Tools** (`xcode-select --install`, the OS-provided installer that also ships git/ssh) when brew is absent.
+  - **SSH (Windows)**: built-in optional feature (admin); **SSH (Linux)**: openssh-client via apt / dnf / pacman (same sudo probe); **macOS**: bundled with the OS.
+  - **Copy install command** and the **Install** button share the same platform-adaptive logic (no more hardcoded Windows winget commands on Linux/macOS).
+- **Live install-progress dialog**: clicking Install opens a progress window showing each step ("fetch latest version → download → extract → install → clean up") with streaming output; success/failure reasons are shown when done.
+- **Restart prompt + one-click restart when needed**: when the running host cannot pick up the tool right away (e.g. gh installed to `~/.local/bin` while it is not on PATH), the dialog shows a「**重启 DSH**」(Restart DSH) button — the host hands off to a detached helper that replays the original launch command (same mechanism as dsh-update), the page briefly disconnects and comes back; when the host already resolves the tool (e.g. `DSH_SCM_GH` set or `~/.local/bin` on PATH), it finishes without interruption.
+- Re-detects automatically after install.
 
 ### ② SSH Key & Connectivity
 - **Platform selector**: GitHub (default) / Gitee — decides the SSH config target and connectivity test below
@@ -190,7 +197,7 @@ All routes are **loopback-only** (`sec-fetch-site` + Origin checks) — only the
 - Optional explicit binary paths via env vars: `DSH_SCM_GIT` / `DSH_SCM_GH` / `DSH_SCM_SSH` / `DSH_SCM_SSH_KEYGEN`
 - **SSH transport fix**: Git for Windows' bundled MSYS `ssh.exe` (`usr\bin\ssh.exe`) can fail with `couldn't create signal pipe, Win32 error 5` when spawned from a detached/agent process, breaking `git push`/`git pull`. The plugin injects `GIT_SSH` pointing at a working `ssh` (usually the system OpenSSH `C:\Windows\System32\OpenSSH\ssh.exe`) for git remote operations
 - **Non-ASCII filename compatibility**: git's default `core.quotepath` prints paths with non-ASCII bytes as octal-escaped quoted strings (which display as garbled text). The plugin injects `-c core.quotepath=false` into every git invocation (raw UTF-8 output) and additionally unescapes any still-quoted paths via `parseGitPath()` — Chinese filenames display correctly in the changes list and in diff headers
-- **One-click missing-tool install across platforms**: winget / built-in features (fallback choco/scoop) on Windows, brew on macOS, apt-get / dnf / pacman on Linux (auto `sudo -n`; skipped when already root). The native folder picker is Windows-only; on macOS/Linux paste the path into the input box instead
+- **One-click missing-tool install across platforms (since v1.15.0, adaptive & mostly sudo-free)**: GitHub CLI installs user-level on Linux/macOS (official binary → `~/.local/bin/gh`, no sudo); git/ssh on Linux use apt-get / dnf / pacman (passwordless sudo probed first, manual guidance otherwise); macOS uses brew or the Xcode Command Line Tools; Windows uses winget / built-in features (fallback choco/scoop). The install runs in a live progress dialog, and a one-click DSH restart is offered when the running host needs it. The native folder picker is Windows-only; on macOS/Linux paste the path into the input box instead
 
 ## Development
 
@@ -273,7 +280,7 @@ This release focuses on the changed-files preview experience and Chinese-filenam
 - **Profile Bundle distribution — install = activate**: `dsh.bundle` changed from the bare string `"./lib/index.js"` to the object form `{ "patch": "./cordis.patch.yml" }`, with a new `cordis.patch.yml` (inserts the `source-code-mgmt` row). `dsh plugin --profile web add source-code-mgmt` now appends the package to `dsh.profile.bundles` and registers it into the Cordis loader tree automatically — **no manual `cordis.patch.yml` editing**. The「install ≠ activate」warning and the PowerShell activation script were removed from the README. Behavior is otherwise unchanged (same `lib/index.js` host half + `lib/client.js` browser half).
 
 ### v1.8.0 and earlier (history)
-See the full Chinese changelog in [README.md](README.md#版本历史). Highlights of recent releases: push-staged button (v1.8.0), fetch-on-open with refreshing indicator (v1.7.0), header button + right panel when better-sidebar is absent (v1.6.0), one-click missing-tool install (v1.5.0), SSH key auto-detection (v1.4.0), local Git workflow — stage/unstage, custom commit message, branch switch, history with revert/cherry-pick, side-by-side diff (v1.3.0), adaptive entry + Gitee support (v1.1–1.2), first release (v1.0.0).
+See the full Chinese changelog in [README.md](README.md#版本历史). Highlights of recent releases: adaptive sudo-free installs with live progress dialog and one-click DSH restart (v1.15.0), PR removal (v1.14.0), push-staged button (v1.8.0), fetch-on-open with refreshing indicator (v1.7.0), header button + right panel when better-sidebar is absent (v1.6.0), one-click missing-tool install (v1.5.0), SSH key auto-detection (v1.4.0), local Git workflow — stage/unstage, custom commit message, branch switch, history with revert/cherry-pick, side-by-side diff (v1.3.0), adaptive entry + Gitee support (v1.1–1.2), first release (v1.0.0).
 
 ## License
 
