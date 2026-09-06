@@ -1,5 +1,6 @@
 // Integration test: load the plugin host, hit safe routes, assert zh/en messages.
 import { EventEmitter } from 'node:events'
+import { fileURLToPath } from 'node:url'
 import { apply } from '../lib/index.js'
 
 const routes = new Map()
@@ -47,7 +48,8 @@ function eq(label, actual, expected) {
   else { fail++; console.log('  FAIL ' + label + ' -> got ' + JSON.stringify(actual) + ', want ' + JSON.stringify(expected)) }
 }
 
-const GITDIR = 'C:/Users/27775/workspace/source-code-mgmt' // a real git repo for /repo-diff
+// 插件根目录（本身是 git 仓库）作为 /repo-diff、/commit 的真实仓库测试目录。
+const GITDIR = fileURLToPath(new URL('..', import.meta.url)).replace(/[\\/]+$/, '')
 const A = '/api/source-code-mgmt'
 
 // 1. remove-workspace: missing dir

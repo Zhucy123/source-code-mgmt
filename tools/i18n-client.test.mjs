@@ -44,7 +44,7 @@ const dictLine = src.split('\n').find((l) => l.trimStart().startsWith('const EN_
 if (!dictLine) throw new Error('EN_DICT not found')
 const dict = vm.runInContext('(' + dictLine.slice(dictLine.indexOf('= ') + 2).trim().replace(/;\s*$/, '') + ')', sandbox)
 const keyCount = Object.keys(dict).length
-if (keyCount !== 274) { console.error('dict key count ' + keyCount + ' (expect 274)'); process.exit(1) }
+if (keyCount !== 280) { console.error('dict key count ' + keyCount + ' (expect 280)'); process.exit(1) }
 const emptyVals = Object.entries(dict).filter(([, v]) => !String(v).trim()).map(([k]) => k)
 if (emptyVals.length) { console.error('EMPTY translations:', emptyVals); process.exit(1) }
 

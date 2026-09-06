@@ -1,6 +1,6 @@
 # source-code-mgmt — DSH Source Code Management Plugin
 
-> Version: **v1.15.1**　|　中文版见 [README.md](README.md)
+> Version: **v1.18.0**　|　中文版见 [README.md](README.md)
 
 > A source-code management plugin for the DSH Web GUI: it bundles「environment check → SSH setup → commit/push/upload code」into one「Code Management」panel with GitHub / Gitee dual-platform support.
 
@@ -30,8 +30,9 @@ The panel has five steps (①②③ are the core three; ④⑤ are the newer ext
   - **Git (Linux)**: apt / dnf / pacman (auto `sudo -n`; **passwordless sudo is probed first** — when a password is required the panel does not run a doomed command, it shows "run this manually in a terminal" guidance with the exact command). **Git (macOS)**: brew, or **Xcode Command Line Tools** (`xcode-select --install`, the OS-provided installer that also ships git/ssh) when brew is absent.
   - **SSH (Windows)**: built-in optional feature (admin); **SSH (Linux)**: openssh-client via apt / dnf / pacman (same sudo probe); **macOS**: bundled with the OS.
   - **Copy install command** and the **Install** button share the same platform-adaptive logic (no more hardcoded Windows winget commands on Linux/macOS).
-- **Live install-progress dialog**: clicking Install opens a progress window showing each step ("fetch latest version → download → extract → install → clean up") with streaming output; success/failure reasons are shown when done.
-- **Restart prompt + one-click restart when needed**: when the running host cannot pick up the tool right away (e.g. gh installed to `~/.local/bin` while it is not on PATH), the dialog shows a「**重启 DSH**」(Restart DSH) button — the host hands off to a detached helper that replays the original launch command (same mechanism as dsh-update), the page briefly disconnects and comes back; when the host already resolves the tool (e.g. `DSH_SCM_GH` set or `~/.local/bin` on PATH), it finishes without interruption.
+  - **Download source selector for GitHub CLI (Linux/macOS)**: because direct `github.com` downloads can stall on domestic networks, when gh is missing the row shows a「下载源」(download source) dropdown — **`gh-proxy.com` (fastest in tests, ~2-3.5MB/s)** → `ghfast.top` / `ghproxy.net` (usable, slower) → `Official (slow)`. The host builds the download URL from the chosen source (mirror = prefix + official Releases URL); **Install** and **Copy install command** both follow the selection. The mirror list is served by `/env` (`ghMirrors`), so the browser never hardcodes mirrors.
+  - **Re-check button whenever something is missing**: the hint row under the tool list always includes a「**重新检查**」(Re-check) button — after a manual install or a refresh you can re-detect without restarting anything.
+- **Live install-progress dialog**: clicking Install opens a progress window showing each step ("fetch latest version → download → extract → install → clean up") with streaming output; success/failure reasons are shown when done. On success the dialog says「安装完成…，刷新网页即可生效」(installed — refresh the page to apply); **no DSH restart is needed**.
 - Re-detects automatically after install.
 
 ### ② SSH Key & Connectivity
@@ -41,7 +42,7 @@ The panel has five steps (①②③ are the core three; ④⑤ are the newer ext
 - One-click **write SSH config** (GitHub: `github.com → ssh.github.com:443`; Gitee: `gitee.com` port 443) — see [Do I need the 443 config?](#do-i-need-the-443-config) below
 - **Test connection** `ssh -T git@github.com` (GitHub) or `ssh -T git@gitee.com` (Gitee)
 - Shows the public key content for easy copy-upload to the platform
-- Detects whether `gh` is logged in and which account
+- Detects whether `gh` is logged in and which account; when **not logged in**, the「GH login」row shows a「**登录 GitHub**」(Log in to GitHub) button (host opens a terminal running `gh auth login` — interactive, complete it there, then click Re-check) plus「复制登录命令」(copy login command) and「重新检查」(Re-check)
 
 ### ③ Code Management
 - **Follows ②'s platform**: all「detect / create / visibility」logic switches with the platform selector (GitHub via `gh` CLI, Gitee via Gitee OpenAPI)
@@ -98,7 +99,7 @@ dsh plugin --profile web add source-code-mgmt
 
 > The command runs `pnpm add` in the web profile directory, then reconciles the plugin layer: because this package declares `dsh.bundle`, it is automatically appended to `dsh.profile.bundles` (see `~/.dsh/profiles/web/package.json`) and registered into the Cordis loader tree — **one command, done**.
 
-After installing, **fully restart dsh web** (stop the old process — not a page refresh), then **F5** in the browser. The「Code Management」entry appears (sidebar Tab with dsh-better-sidebar, otherwise the header button + right panel).
+After installing, **refresh the browser** (**F5**). The「Code Management」entry appears (sidebar Tab with dsh-better-sidebar, otherwise the header button + right panel). No DSH restart is needed — host-side tool detection re-probes on every check.
 
 ### Option 2: local directory (development / testing)
 
@@ -126,24 +127,24 @@ dsh web
 
 ### Verifying the install
 
-After installing and restarting:
+After installing and refreshing the page:
 
 1. **Dependency written**: `source-code-mgmt` is in `dependencies` of `~/.dsh/profiles/web/package.json`.
 2. **Added to the config layer**: `source-code-mgmt` is in the `dsh.profile.bundles` list of the same file (written automatically by `dsh plugin add` — no manual editing).
 3. **Symlink created (`link:` only)**: `~/.dsh/profiles/web/node_modules/source-code-mgmt` points at your source dir (a Junction on Windows).
-4. **Entry visible after restart**: sidebar「Code Management」Tab with dsh-better-sidebar, otherwise the header button beside "Session log" opening the right panel.
+4. **Entry visible after refresh**: sidebar「Code Management」Tab with dsh-better-sidebar, otherwise the header button beside "Session log" opening the right panel.
 
 ### Troubleshooting
 
 | Symptom | Cause / fix |
 |---------|-------------|
-| Installed with `dsh plugin add` and restarted, but no button | Most common: the process was **refreshed, not fully restarted**. Stop the old `dsh web` process (it may still hold port 3080) and start it again. |
+| Installed with `dsh plugin add` but no button | Usually the page was not reloaded after install. **Refresh the browser** (F5); if the entry still does not appear, restart the `dsh web` process (it may hold port 3080). |
 | Install prints「declares no dsh.bundle」 | The installed version lacks the bundle declaration (old version or a package missing `cordis.patch.yml`). Reinstall/update with version ≥ 1.9.0. |
 |「Failed to load plugins」 | The host-side `lib/index.js` failed to boot (usually a dependency resolution issue). Check the startup log and confirm `node_modules` dependencies are complete. |
 
 ## Usage
 
-1. Restart dsh web and refresh the browser.
+1. Refresh the browser (F5) — no DSH restart needed.
 2. Click the「**Code Management**」entry (sidebar Tab with dsh-better-sidebar, otherwise the header button beside "Session log").
 3. ① Confirm Git / GitHub CLI are installed → ② generate a key and test connectivity → ③ pick a workspace, then push or create a new repo.
 
@@ -152,8 +153,12 @@ After installing and restarting:
 | Route | Method | Description |
 |-------|--------|-------------|
 | `/api/source-code-mgmt/env` | GET | Environment check (git/gh versions) |
-| `/api/source-code-mgmt/install-tool` | POST | One-click install of a missing tool (body `tool`: `git`/`gh`/`ssh`, package manager picked per platform) |
+| `/api/source-code-mgmt/install-tool` | POST | One-click install of a missing tool (body `tool`: `git`/`gh`/`ssh`; optional `source` for gh: `official` or a mirror id like `gh-proxy.com`; package manager picked per platform; NDJSON event stream response) |
+| `/api/source-code-mgmt/install-command` | POST | Copyable install command for a tool + download source (body `tool` + optional `source`; same logic as Install) |
 | `/api/source-code-mgmt/ssh` | GET | SSH key / config / gh login status |
+| `/api/source-code-mgmt/gh/login` | POST | Open a terminal running `gh auth login` (interactive — complete it there, then click Re-check) |
+| `/api/source-code-mgmt/gitee/login` | POST | Open a terminal running `gitee auth login` (official Gitee CLI, interactive — paste the personal token) |
+| `/api/source-code-mgmt/gitee/import-token` | POST | Import the token saved by Gitee CLI (`gitee auth token`) into the plugin store for ③ |
 | `/api/source-code-mgmt/gen-key` | POST | Generate an ed25519 key |
 | `/api/source-code-mgmt/write-config` | POST | Write SSH config (body `provider`: `github` default / `gitee`) |
 | `/api/source-code-mgmt/ssh-test` | POST | Test SSH connectivity (body `provider`: `github` default / `gitee`) |
@@ -282,7 +287,7 @@ This release focuses on the changed-files preview experience and Chinese-filenam
 - **Profile Bundle distribution — install = activate**: `dsh.bundle` changed from the bare string `"./lib/index.js"` to the object form `{ "patch": "./cordis.patch.yml" }`, with a new `cordis.patch.yml` (inserts the `source-code-mgmt` row). `dsh plugin --profile web add source-code-mgmt` now appends the package to `dsh.profile.bundles` and registers it into the Cordis loader tree automatically — **no manual `cordis.patch.yml` editing**. The「install ≠ activate」warning and the PowerShell activation script were removed from the README. Behavior is otherwise unchanged (same `lib/index.js` host half + `lib/client.js` browser half).
 
 ### v1.8.0 and earlier (history)
-See the full Chinese changelog in [README.md](README.md#版本历史). Highlights of recent releases: npm-login terminal fix (no host crash) + official-registry publish (v1.15.1), adaptive sudo-free installs with live progress dialog and one-click DSH restart (v1.15.0), PR removal (v1.14.0), push-staged button (v1.8.0), fetch-on-open with refreshing indicator (v1.7.0), header button + right panel when better-sidebar is absent (v1.6.0), one-click missing-tool install (v1.5.0), SSH key auto-detection (v1.4.0), local Git workflow — stage/unstage, custom commit message, branch switch, history with revert/cherry-pick, side-by-side diff (v1.3.0), adaptive entry + Gitee support (v1.1–1.2), first release (v1.0.0).
+See the full Chinese changelog in [README.md](README.md#版本历史). Highlights of recent releases: ① now shows a **Check update** button for GitHub CLI / Gitee CLI — compares local vs official latest, confirms, then re-runs the install flow with `force` to update (v1.18.0), Gitee mode now detects/installs the official **Gitee CLI** (platform-adaptive ① tool rows, one-click install, `gitee auth login` button in ②, one-click token import into ③) and one-click DSH restart removed (v1.17.0), GitHub CLI download-source selector with mirrors + gh login button (v1.16.0), npm-login terminal fix (no host crash) + official-registry publish (v1.15.1), adaptive sudo-free installs with live progress dialog and one-click DSH restart (v1.15.0), PR removal (v1.14.0), push-staged button (v1.8.0), fetch-on-open with refreshing indicator (v1.7.0), header button + right panel when better-sidebar is absent (v1.6.0), one-click missing-tool install (v1.5.0), SSH key auto-detection (v1.4.0), local Git workflow — stage/unstage, custom commit message, branch switch, history with revert/cherry-pick, side-by-side diff (v1.3.0), adaptive entry + Gitee support (v1.1–1.2), first release (v1.0.0).
 
 ## License
 

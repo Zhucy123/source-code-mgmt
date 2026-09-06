@@ -2,7 +2,7 @@
 
 > [English](README.en.md) | 中文
 
-> 版本：**v1.15.1**　|　更新日志见文末「[版本历史](#版本历史)」
+> 版本：**v1.18.0**　|　更新日志见文末「[版本历史](#版本历史)」
 
 > **界面语言跟随 DSH 设置实时切换**：面板与 host 端消息自动使用 DSH 的语言（设置 → 通用 → 语言），中文 ↔ 英文即时生效，无需重启。
 
@@ -153,9 +153,13 @@ dsh web
 | 路由 | 方法 | 说明 |
 |------|------|------|
 | `/api/source-code-mgmt/env` | GET | 环境检查（git/gh 版本） |
-| `/api/source-code-mgmt/install-tool` | POST | 一键安装缺失工具（body `tool`: `git`/`gh`/`ssh`，按平台自适应：gh 在 Linux/macOS 免 sudo 装到 `~/.local/bin`；git/ssh 走系统包管理器 / brew / Xcode CLT / winget；响应为 **NDJSON 事件流**：`step`/`out`/`result`，供进度弹窗实时展示） |
-| `/api/source-code-mgmt/restart` | POST | 一键重启 dsh（detached helper 按原启动命令拉起新进程；严格 loopback + origin 同源校验；supervisor 托管时禁用） |
+| `/api/source-code-mgmt/install-tool` | POST | 一键安装缺失工具（body `tool`: `git`/`gh`/`ssh`；gh 可另传 `source`: `official` 或 `gh-proxy.com`/`ghfast.top`/`ghproxy.net` 等镜像 id，按平台自适应：gh 在 Linux/macOS 免 sudo 装到 `~/.local/bin`；git/ssh 走系统包管理器 / brew / Xcode CLT / winget；响应为 **NDJSON 事件流**：`step`/`out`/`result`，供进度弹窗实时展示） |
+| `/api/source-code-mgmt/install-command` | POST | 按工具与下载源返回可复制的安装命令（body `tool` + 可选 `source`；与「安装」同源逻辑） |
+| `/api/source-code-mgmt/check-update` | POST | 检查 gh / gitee 是否有可用更新（body `tool`；返回 `{current, latest, hasUpdate}`） |
 | `/api/source-code-mgmt/ssh` | GET | SSH 密钥 / config / gh 登录状态 |
+| `/api/source-code-mgmt/gh/login` | POST | 打开终端运行 `gh auth login`（交互式登录需用户在弹出终端完成；找不到终端时返回手动命令指引） |
+| `/api/source-code-mgmt/gitee/login` | POST | 打开终端运行 `gitee auth login`（官方 Gitee CLI 交互式登录，粘贴私人令牌） |
+| `/api/source-code-mgmt/gitee/import-token` | POST | 把 Gitee CLI 已保存的令牌（`gitee auth token`）导入插件存储，③ 即可直接使用 |
 | `/api/source-code-mgmt/gen-key` | POST | 生成 ed25519 密钥 |
 | `/api/source-code-mgmt/write-config` | POST | 写入 SSH config（body `provider`: `github` 默认 / `gitee`） |
 | `/api/source-code-mgmt/ssh-test` | POST | 测试 SSH 连接（body `provider`: `github` 默认 / `gitee`） |
@@ -213,11 +217,40 @@ dsh plugin --profile web add link:$(pwd)
 ```
 
 - 改动 `lib/client.js`（浏览器端）→ 刷新页面即生效
-- 改动 `lib/index.js`（host/Node 端）→ 需重启 dsh web
+- 改动 `lib/index.js`（host/Node 端）→ 刷新页面即可让面板重新检测（`toolInstalled` 按当前 PATH / `~/.local/bin` 实测）；如 host 端 API 仍为旧版，重启 dsh web 进程一次
 
 ## 版本历史
 
-### v1.15.1（当前）
+### v1.18.0（当前）
+① 环境检查新增 **CLI 检查更新**（GitHub CLI / Gitee CLI）：
+
+- **已安装时显示「检查更新」按钮**：host 对比本地版本与官方最新 release（gh 查 GitHub Releases API；gitee 查 Gitee OpenAPI 公开端点，无需令牌）。
+- **有更新 → 询问 → 按安装逻辑更新**：`window.confirm` 展示「发现新版本：x → y，是否立即更新？」；确认后**复用一键安装流程**（`/install-tool` 带 `force`，跳过「已安装」短路）——gh 走用户级安装脚本 + 所选下载源（镜像），gitee 走官方安装脚本，进度弹窗实时展示，装完自动重新检测。
+- 无更新提示「已是最新版本（x）」；错误（读不到版本/连不上官方）有明确提示。
+- **点击「检查更新」后按钮变为「正在检查更新…」并禁用**，检查完成自动恢复。
+- **修复更新不生效**：`/install-tool` 路由最初未透传 `force`（更新确认后命中「已安装」短路，显示"已安装 执行成功"但版本不变），已修复——`force` 完整透传到安装流程，更新真正覆盖安装到最新版。
+- 新增 `POST /check-update` 路由（body `tool`: `gh`/`gitee` → `{ok, current, latest, hasUpdate}`）。
+- 变更范围：`lib/index.js`、`lib/client.js`。版本号 1.17.0 → 1.18.0。
+
+### v1.17.0（历史）
+Gitee 平台改用官方 **Gitee CLI** 检测与登录（对齐 GitHub 的 gh 体验）：
+
+- **① 环境检查按平台自适应**：切到 Gitee 后，工具行检测 **Gitee CLI（`gitee`，官方 oschina/gitee-cli）** 而不是 GitHub CLI（gh）；切回 GitHub 恢复检测 gh。Gitee CLI **未安装时可一键安装**（Linux/macOS 走官方安装脚本免 sudo 装到 `~/.local/bin/gitee`，gitee.com 国内直连无需镜像；Windows 走 `npm install -g @gitee/gitee-cli`），安装后点「重新检查」即可。
+- **② Gitee 登录行用 CLI 状态**：Gitee CLI 已装时显示 `gitee auth status` 结果——未登录提供「**登录 Gitee**」按钮（host 打开终端运行 `gitee auth login`，粘贴私人令牌即可）+「复制登录命令」+「重新检查」；CLI 未装时提示「请在 ① 环境检查安装 Gitee CLI」，并显示令牌兜底状态（Gitee API 仍需要私人令牌，可在 ③ 配置）。
+- **③「从 Gitee CLI 导入」令牌**：Gitee CLI 已登录时，③ 令牌配置块出现「从 Gitee CLI 导入」按钮——把 CLI 保存的令牌（`gitee auth token`）一键导入插件存储（`~/.dsh/storages`），免去手动复制粘贴；「新建仓库并推送」等 OpenAPI 功能随即可用。
+- 私人令牌仍是 Gitee API 认证方式（创建仓库等必需）；SSH 公钥只管 push/pull 已有仓库。
+- 变更范围：`lib/index.js`、`lib/client.js`。版本号 1.16.0 → 1.17.0。
+
+### v1.16.0（历史）
+GitHub CLI 下载提速 + gh 登录按钮 + 移除一键重启：
+
+- **GitHub CLI 下载源可选（官网 / 镜像）**：官网直连在国内网络经常「下载很慢 / 基本不走进度」。现 gh 未安装时，①环境检查会显示「下载源」下拉（默认第一个镜像）：`gh-proxy.com`（实测约 2-3.5MB/s、稳定）→ `ghfast.top` / `ghproxy.net`（可用但偏慢）→ `官网（慢）`。下载 URL 由 host 按所选源构造（镜像 = 前缀 + 官方 Releases URL），「一键安装」与「复制安装命令」都跟随所选下载源。镜像列表由 `/env` 的 `ghMirrors` 下发，后续增删镜像无需改浏览器端。
+- **安装完成提示改为「刷新网页即可生效」**：删除「需要重启 DSH 生效」提示与「重启 DSH」按钮；成功提示统一为「安装完成…，刷新网页即可生效」。host 端删除整套一键重启机制（`/restart` 路由、`restartLaunch` / `scheduleRestart` / `restartNeededFor` 等）。
+- **缺少环境时也显示「重新检查」按钮**：之前只有全部就绪才显示；现在有缺失时提示行旁同样提供「重新检查」，手动安装 / 刷新后无需重启即可重新检测。
+- **gh 未登录时可一键登录**：② SSH 密钥与连接的「GH 登录」行在未登录时显示「登录 GitHub」按钮（host 打开终端运行 `gh auth login`，KDE konsole 独立窗口、找不到终端给出手动命令指引）+「复制登录命令」+「重新检查」；登录完成后点「重新检查」即可看到账号。
+- 变更范围：`lib/client.js`（刷新即生效）、`lib/index.js`（刷新/重启一次生效）。版本号 1.15.1 → 1.16.0。
+
+### v1.15.1（历史）
 ⑤ 发布 npm 包功能修复（v1.15.0 的补丁）：
 
 - **修复「打开终端执行 npm login」打崩 host**：旧实现 `spawn` 不存在的终端二进制（如 SteamOS 上没有 `x-terminal-emulator`）时，异步 ENOENT 错误无监听器被抛成未捕获异常，**直接把 dsh host 进程打崩**（表现：运行 `pnpm dsh web` 的终端跟着结束）。现改为先 `findTerminal()` 探测 PATH 中真实存在的终端（konsole / gnome-terminal / xterm 系等），并对每个 child 挂 `error` 监听器兜底——绝不再崩宿主。
