@@ -74,6 +74,8 @@
 
 ### ⑤ 发布 npm 包（npm publish）
 - 五步向导（在目标目录执行）：**① 确认源** `npm config get registry` → **② 查看认证配置** `npm config list`（自动脱敏 token/auth/password）→ **③ 验证身份** `npm whoami` → **④ 预览打包** `npm pack --dry-run`（先看会发布哪些文件，不真正打包发布）→ **⑤ 发布** `npm publish`
+- **登录与发布固定走官方源 `https://registry.npmjs.org`**：即使你的全局 npm 配置是镜像源（如 `registry.npmmirror.com`——镜像只同步、不接受发布），`whoami` / `npm login` / `npm publish` 也统一带 `--registry=https://registry.npmjs.org`；状态区在检测到镜像配置时会黄色提示「发布将使用官方源」。
+- **「打开终端执行 npm login」安全弹终端**：先探测系统真实存在的终端程序（`konsole` / `gnome-terminal` / `xterm` 系等），再 spawn（并挂 error 监听兜底）——修复了旧版 `spawn` 不存在二进制时异步 ENOENT 未捕获、**直接把 dsh host 进程打崩**的问题；KDE 下用 `konsole --separate` 开独立窗口，不与宿主所在终端实例纠缠。找不到终端时明确返回手动命令指引，不再假装成功。
 - 发布前必须勾选「我已核对以上内容，确认发布到 npm registry」才可点「发布」，防止误操作
 
 ### 数据加载时机（打开时联网、显示刷新中）
@@ -215,7 +217,15 @@ dsh plugin --profile web add link:$(pwd)
 
 ## 版本历史
 
-### v1.15.0（当前）
+### v1.15.1（当前）
+⑤ 发布 npm 包功能修复（v1.15.0 的补丁）：
+
+- **修复「打开终端执行 npm login」打崩 host**：旧实现 `spawn` 不存在的终端二进制（如 SteamOS 上没有 `x-terminal-emulator`）时，异步 ENOENT 错误无监听器被抛成未捕获异常，**直接把 dsh host 进程打崩**（表现：运行 `pnpm dsh web` 的终端跟着结束）。现改为先 `findTerminal()` 探测 PATH 中真实存在的终端（konsole / gnome-terminal / xterm 系等），并对每个 child 挂 `error` 监听器兜底——绝不再崩宿主。
+- **KDE konsole 用 `--separate` 开独立窗口**：不与宿主所在的 konsole 实例纠缠；找不到任何终端时明确返回「请手动运行：<命令>」指引，不再假装打开成功。
+- **npm 登录/发布固定走官方源**：`npm login` / `npm whoami` / `npm publish` 统一带 `--registry=https://registry.npmjs.org`（镜像源只同步、不接受发布）；`npmStatus` 新增 `publishRegistry` / `mirrorConfigured`，面板在检测到镜像配置（如 npmmirror）时黄色提示「发布将使用官方源」；「复制登录命令」也同步为官方源版本。
+- 变更范围：`lib/index.js`（需重启 dsh web）、`lib/client.js`（刷新即生效）。版本号 1.15.0 → 1.15.1。
+
+### v1.15.0（历史）
 一键安装全面升级：**平台自适应 + 尽量免 sudo + 实时进度 + 一键重启**。
 
 - **修复「复制安装命令」在 Linux/macOS 上错误显示 winget**：客户端写死的 Windows 提示改为取 host `/env` 返回的 `installHints`（与「安装」按钮同一套平台自适应逻辑）；非 Windows 且无可用方式时留空，不再误导。

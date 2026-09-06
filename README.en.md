@@ -1,6 +1,6 @@
 # source-code-mgmt — DSH Source Code Management Plugin
 
-> Version: **v1.15.0**　|　中文版见 [README.md](README.md)
+> Version: **v1.15.1**　|　中文版见 [README.md](README.md)
 
 > A source-code management plugin for the DSH Web GUI: it bundles「environment check → SSH setup → commit/push/upload code」into one「Code Management」panel with GitHub / Gitee dual-platform support.
 
@@ -68,6 +68,8 @@ The panel has five steps (①②③ are the core three; ④⑤ are the newer ext
 
 ### ⑤ Publish npm package
 - Five-step wizard (run in the target directory): **① check registry** `npm config get registry` → **② view auth config** `npm config list` (auto-redacts token/auth/password) → **③ verify identity** `npm whoami` → **④ preview packed files** `npm pack --dry-run` (see exactly what would be published, nothing is packed or uploaded) → **⑤ publish** `npm publish`
+- **Login and publish always use the official registry `https://registry.npmjs.org`**: even when your global npm config points at a mirror (e.g. `registry.npmmirror.com` — mirrors only sync, they do not accept publishes), `whoami` / `npm login` / `npm publish` all carry `--registry=https://registry.npmjs.org`; the status area shows a yellow "publishing uses the official registry" hint when a mirror is configured.
+- **"Open terminal to run npm login" now spawns a terminal safely**: it first probes for a terminal that actually exists on PATH (`konsole` / `gnome-terminal` / xterm-family, etc.), attaches an `error` listener to every child, and uses `konsole --separate` on KDE — fixing the old bug where spawning a missing binary (e.g. no `x-terminal-emulator` on SteamOS) raised an uncaught async ENOENT that **crashed the dsh host process** (which looked like your `pnpm dsh web` terminal dying). When no terminal exists it returns explicit "run manually: <command>" guidance instead of pretending success.
 - Publishing requires ticking「I've reviewed the above — confirm publishing to the npm registry」first, preventing accidental publishes
 
 ### Data loading timing (fetch on open, "refreshing…" indicator)
@@ -280,7 +282,7 @@ This release focuses on the changed-files preview experience and Chinese-filenam
 - **Profile Bundle distribution — install = activate**: `dsh.bundle` changed from the bare string `"./lib/index.js"` to the object form `{ "patch": "./cordis.patch.yml" }`, with a new `cordis.patch.yml` (inserts the `source-code-mgmt` row). `dsh plugin --profile web add source-code-mgmt` now appends the package to `dsh.profile.bundles` and registers it into the Cordis loader tree automatically — **no manual `cordis.patch.yml` editing**. The「install ≠ activate」warning and the PowerShell activation script were removed from the README. Behavior is otherwise unchanged (same `lib/index.js` host half + `lib/client.js` browser half).
 
 ### v1.8.0 and earlier (history)
-See the full Chinese changelog in [README.md](README.md#版本历史). Highlights of recent releases: adaptive sudo-free installs with live progress dialog and one-click DSH restart (v1.15.0), PR removal (v1.14.0), push-staged button (v1.8.0), fetch-on-open with refreshing indicator (v1.7.0), header button + right panel when better-sidebar is absent (v1.6.0), one-click missing-tool install (v1.5.0), SSH key auto-detection (v1.4.0), local Git workflow — stage/unstage, custom commit message, branch switch, history with revert/cherry-pick, side-by-side diff (v1.3.0), adaptive entry + Gitee support (v1.1–1.2), first release (v1.0.0).
+See the full Chinese changelog in [README.md](README.md#版本历史). Highlights of recent releases: npm-login terminal fix (no host crash) + official-registry publish (v1.15.1), adaptive sudo-free installs with live progress dialog and one-click DSH restart (v1.15.0), PR removal (v1.14.0), push-staged button (v1.8.0), fetch-on-open with refreshing indicator (v1.7.0), header button + right panel when better-sidebar is absent (v1.6.0), one-click missing-tool install (v1.5.0), SSH key auto-detection (v1.4.0), local Git workflow — stage/unstage, custom commit message, branch switch, history with revert/cherry-pick, side-by-side diff (v1.3.0), adaptive entry + Gitee support (v1.1–1.2), first release (v1.0.0).
 
 ## License
 
