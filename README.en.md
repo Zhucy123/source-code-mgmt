@@ -30,7 +30,7 @@ The panel has five steps (①②③ are the core three; ④⑤ are the newer ext
   - **Git (Linux)**: apt / dnf / pacman (auto `sudo -n`; **passwordless sudo is probed first** — when a password is required the panel does not run a doomed command, it shows "run this manually in a terminal" guidance with the exact command). **Git (macOS)**: brew, or **Xcode Command Line Tools** (`xcode-select --install`, the OS-provided installer that also ships git/ssh) when brew is absent.
   - **SSH (Windows)**: built-in optional feature (admin); **SSH (Linux)**: openssh-client via apt / dnf / pacman (same sudo probe); **macOS**: bundled with the OS.
   - **Copy install command** and the **Install** button share the same platform-adaptive logic (no more hardcoded Windows winget commands on Linux/macOS).
-  - **Download source selector for GitHub CLI (Linux/macOS)**: because direct `github.com` downloads can stall on domestic networks, when gh is missing the row shows a「下载源」(download source) dropdown — **`gh-proxy.com` (fastest in tests, ~2-3.5MB/s)** → `ghfast.top` / `ghproxy.net` (usable, slower) → `Official (slow)`. The host builds the download URL from the chosen source (mirror = prefix + official Releases URL); **Install** and **Copy install command** both follow the selection. The mirror list is served by `/env` (`ghMirrors`), so the browser never hardcodes mirrors.
+  - **Download source selector for GitHub CLI (all platforms)**: because direct `github.com` downloads can stall on domestic networks, when gh is missing the row shows a「下载源」(download source) dropdown — **`gh-proxy.com` (fastest in tests, ~2-3.5MB/s)** → `ghfast.top` / `ghproxy.net` (usable, slower) → `Official (slow)`. On Linux/macOS the mirrored `.tar.gz` is unpacked to `~/.local/bin`; on **Windows** the mirrored official `.msi` is downloaded and silently installed via `msiexec /qn` (same effect as winget but bypasses the slow direct download). The host builds the download URL from the chosen source (mirror = prefix + official Releases URL); **Install** and **Copy install command** both follow the selection. The mirror list is served by `/env` (`ghMirrors`), so the browser never hardcodes mirrors.
   - **Re-check button whenever something is missing**: the hint row under the tool list always includes a「**重新检查**」(Re-check) button — after a manual install or a refresh you can re-detect without restarting anything.
 - **Live install-progress dialog**: clicking Install opens a progress window showing each step ("fetch latest version → download → extract → install → clean up") with streaming output; success/failure reasons are shown when done. On success the dialog says「安装完成…，刷新网页即可生效」(installed — refresh the page to apply); **no DSH restart is needed**.
 - Re-detects automatically after install.
@@ -220,7 +220,29 @@ dsh plugin --profile web add link:$(pwd)
 
 ## Version history
 
-### v1.14.0 (current)
+### v1.20.0 (current)
+① Env Check gains a **Git check-update (Windows only)** (same interaction as gh/gitee):
+
+- **Installed Git rows show a「检查更新」button on Windows only**: the host compares the local `git --version` against the latest official stable Git; when an update exists it confirms via `window.confirm` and upgrades in one click (live progress dialog).
+- **The official version source cannot use GitHub Releases** (`git/git` has no releases — `/releases/latest` is 404), so it uses the **tags API** and **filters out pre-release/RC tags** (e.g. `v2.56.0-rc0`, avoiding a bogus prompt to update to an RC).
+- **Update = system package-manager "upgrade" command**: Windows `winget upgrade Git.Git` (winget handles elevation).
+- **Linux/macOS do NOT show the Git check-update**: there the git is managed by the distro / brew / Xcode CLT and its version lags the official one (distros pin versions), so comparing against the official latest would **always report an update**, and it updates via the system anyway. The host also guards this: a non-Windows git-update request returns "Git follows your system updates".
+- SSH stays untouched (a system component with no independently upgradable version worth tracking).
+- New `tool=git` branch on `POST /check-update` (returns `{ok, current, latest, hasUpdate}`).
+- Scope: `lib/index.js` (refresh/restart to apply), `lib/client.js` (refresh to apply). Version 1.19.0 → 1.20.0.
+
+### v1.19.0 (current — historical note kept)
+Extends the GitHub CLI download-source selector to **Windows** (previously Linux/macOS only):
+
+- **Windows now shows the「下载源」dropdown**: when gh is missing, ① Env Check on Windows renders the mirror selector too (defaults to the first mirror `gh-proxy.com`).
+- **Windows mirror install = download official `.msi` + silent `msiexec`**: the host fetches `gh_<version>_windows_<arch>.msi` with the chosen mirror prefix (measured ~5-6MB/s) and installs it silently via `msiexec /qn` (elevated through PowerShell `Start-Process -Verb RunAs -Wait`, which pops a UAC prompt — the DSH process usually is not elevated) — registers into Program Files & PATH like winget, but avoids the slow direct-to-GitHub segment. One-click install (step progress), **Copy install command**, and **Check update** all follow the selected mirror.
+- **Fix for `curl: (3) URL rejected: Port number...` on Windows**: the first implementation ran curl through `cmd /c`, whose quote-reshuffling by Node spawn made curl misread the second `https://` in a mirror URL as `host:port`. Now the download calls `curl.exe` with an **arg array** (`runLive(bin, args)`), passing values individually and bypassing the shell-quote rewrite entirely.
+- **Same mirror list** as Linux/macOS (`GH_MIRRORS`); only the downloaded asset changes from `.tar.gz` to `.msi`.
+- **「下载源」dropdown now also shows when gh is already installed (all three platforms)**: previously it only rendered when gh was missing, so a user clicking **Check update** had no way to pick a mirror (updates used the hidden `ghSource`, and if it defaulted to official the re-download was slow) — the same gap on Linux/macOS and Windows. Now the gh row keeps the selector visible: when not installed it governs one-click install; when installed it governs the update-triggered reinstall. The default-mirror timing was also hardened (independent `useEffect` on `env`) so "click Check update right away" no longer races to the official source.
+- **Fallback**: selecting「官网（慢）」or when the version lookup fails, Windows falls back to the system package manager (winget / choco / scoop) unchanged.
+- Scope: `lib/index.js` (refresh/restart to apply), `lib/client.js` (refresh to apply). Version 1.18.0 → 1.19.0. (Versions v1.15–v1.18 are covered in the Chinese README.)
+
+### v1.14.0 (current — historical note kept)
 Per your request the **⑤ "Submit PR" feature has been removed**:
 
 - **Front-end**: `lib/client.js` drops the whole `PrSection` (its render in the panel and the "⑤ Submit PR" mention in the panel intro), along with the now-unused `EN_DICT` PR keys.

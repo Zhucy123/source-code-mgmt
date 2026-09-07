@@ -221,7 +221,29 @@ dsh plugin --profile web add link:$(pwd)
 
 ## 版本历史
 
-### v1.18.0（当前）
+### v1.20.0（当前）
+① 环境检查新增 **Git 检查更新（仅 Windows）**（复用 gh/gitee 的「检查更新」交互）：
+
+- **已安装的 Git 行显示「检查更新」按钮（仅 Windows 显示）**：host 对比本地 `git --version` 与 Git 官方最新稳定版本，有更新则 `window.confirm` 确认后一键升级（进度弹窗实时展示）。
+- **Git 官方版本来源不能用 GitHub Releases（`git/git` 没有 release，/releases/latest 是 404）**，改用其 **tags API** 并**过滤预发布/RC**（`v2.56.0-rc0` 之类会被剔除，避免诱导更新到 RC）。
+- **更新 = 系统包管理器「升级」命令**：Windows `winget upgrade Git.Git`；需要 root 时沿用 `canSudo()` 探测（Windows 走 winget 自处理提权）。
+- **Linux/macOS 不显示 Git 检查更新**：这两个平台的 git 是发行版 / brew / Xcode CLT 管理的，版本与官方不同步（Linux 常停留在发行版固定版本），拿官方最新版对比会**永远误报**，且随系统更新走无需单独检查——host 端也加了防御，非 Windows 的 git 更新直接提示「Git 随系统更新」。
+- SSH **不加**更新（系统组件、无独立可升级版本，且没必要）。
+- 新增 `POST /check-update` 的 `tool=git` 分支（返回 `{ok, current, latest, hasUpdate}`）。
+- 变更范围：`lib/index.js`（刷新/重启一次生效）、`lib/client.js`（刷新即生效）。版本号 1.19.0 → 1.20.0。
+
+### v1.19.0（历史）
+GitHub CLI 下载源选择扩展到 **Windows**（此前仅 Linux/macOS）：
+
+- **Windows 也支持镜像下载源下拉**：之前下载源选择只在 Linux/macOS 显示，Windows 走 winget 直连 GitHub Releases 导致「下载很慢 / 不走进度」。现在 ① 环境检查在 Windows 的 gh 缺失时同样显示「下载源」下拉（默认第一个镜像 `gh-proxy.com`）。
+- **Windows 镜像安装 = 下载官方 msi + msiexec 静默安装**：选定镜像后，host 按「镜像前缀 + 官方 msi URL」下载 `gh_<版本>_windows_<arch>.msi`（实测约 5-6MB/s），再用 `msiexec /qn` 全静默安装——与 winget 效果一致（gh 注册进 Program Files 与 PATH），但避开了直连 GitHub 的慢速段。「一键安装」分步进度 /「复制安装命令」/「检查更新」均跟随所选镜像。msiexec 用 PowerShell `-EncodedCommand`（UTF-16LE base64）经 `Start-Process -Verb RunAs -Wait` 触发 UAC 提权安装（DSH 进程通常非提权）。
+- **修复 Windows 下载报 `curl: (3) URL rejected: Port number...`**：最初用 `cmd /c` 拼字符串执行 curl，Node spawn 在 Windows 会重排引号，把镜像 URL 的第二个 `https://` 误判成「host:端口」导致 curl 拒绝。已改为**参数数组直接调用 `curl.exe`**（`runLive(bin, args)`），逐个传值，彻底绕开 shell 引号重排。
+- **列举镜像**：`gh-proxy.com`（快，推荐）→ `ghfast.top` / `ghproxy.net`（可用，较慢）→ 官网（慢）；与 Linux/macOS 共用同一份 `GH_MIRRORS`，仅下载资产从 `.tar.gz` 换成 `.msi`。
+- **「下载源」下拉在 gh 已安装时也显示（三平台统一）**：此前只在 gh 缺失时渲染，导致**已安装点「检查更新」时无法选镜像**（更新走隐藏的 `ghSource`，若默认落官网则很慢）——Linux/macOS/Windows 都存在。现改为 gh 行**常驻「下载源」下拉**：未安装时影响一键安装，已安装时影响「检查更新」触发的覆盖安装；并修复默认镜像的竞态（改为独立 `useEffect` 监听 env，保证「已安装点更新」也不会竞态落到官网）。
+- **回退策略**：选「官网（慢）」或镜像版本解析失败时，Windows 回落系统包管理器（winget / choco / scoop），原有行为不变。
+- 变更范围：`lib/index.js`（刷新/重启一次生效）、`lib/client.js`（刷新即生效）。版本号 1.18.0 → 1.19.0。
+
+### v1.18.0（历史）
 ① 环境检查新增 **CLI 检查更新**（GitHub CLI / Gitee CLI）：
 
 - **已安装时显示「检查更新」按钮**：host 对比本地版本与官方最新 release（gh 查 GitHub Releases API；gitee 查 Gitee OpenAPI 公开端点，无需令牌）。
