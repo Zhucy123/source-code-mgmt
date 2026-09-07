@@ -157,8 +157,6 @@ After installing and refreshing the page:
 | `/api/source-code-mgmt/install-command` | POST | Copyable install command for a tool + download source (body `tool` + optional `source`; same logic as Install) |
 | `/api/source-code-mgmt/ssh` | GET | SSH key / config / gh login status |
 | `/api/source-code-mgmt/gh/login` | POST | Open a terminal running `gh auth login` (interactive — complete it there, then click Re-check) |
-| `/api/source-code-mgmt/gitee/login` | POST | Open a terminal running `gitee auth login` (official Gitee CLI, interactive — paste the personal token) |
-| `/api/source-code-mgmt/gitee/import-token` | POST | Import the token saved by Gitee CLI (`gitee auth token`) into the plugin store for ③ |
 | `/api/source-code-mgmt/gen-key` | POST | Generate an ed25519 key |
 | `/api/source-code-mgmt/write-config` | POST | Write SSH config (body `provider`: `github` default / `gitee`) |
 | `/api/source-code-mgmt/ssh-test` | POST | Test SSH connectivity (body `provider`: `github` default / `gitee`) |
@@ -220,7 +218,16 @@ dsh plugin --profile web add link:$(pwd)
 
 ## Version history
 
-### v1.20.0 (current)
+### v1.21.0 (current)
+**Gitee CLI fully removed + the Gitee personal token moved to ②**:
+
+- **Background**: the Gitee CLI was never required — the plugin's Gitee features (create repo / push / clone / ②③) are driven by the **personal token (OpenAPI)** and **SSH public keys**, not the CLI binary; and on Windows its install often failed (ENOENT without npm.exe / EINVAL spawning npm.cmd) with a misleading "no usable package manager" error.
+- **Host**: removed `GITEE` const, `env.gitee`, `installHints.gitee`, `giteeLoggedIn`/`giteeAccount` in `checkSsh`, `giteeUserLevelScript`, `checkGiteeUpdate`, `giteeLoginTerminal`, the `/gitee/login` and `/gitee/import-token` routes, and every `gitee` branch in `installCommandSystem`/`installCommand`/`installToolFlow`/`toolInstalled`/`/check-update`. `installCommandSystem` now returns null for unknown tools (including gitee) so it cannot fall through to gh's package id.
+- **Client**: ① Env Check always checks gh (no platform-switched Gitee CLI row); ② **now holds the Gitee personal-token input/save/clear** (`/gitee-token` storage; ③④ refresh immediately via the token tick); ③ only shows the token status read-only (pointing to ② when unset) and drops the "Import from Gitee CLI" button.
+- **Unchanged**: the Gitee platform itself, the personal-token storage (`~/.dsh/storages`, 0600), create/push/clone, and SSH-443 config all remain.
+- Scope: `lib/index.js` (restart dsh web), `lib/client.js` (refresh). Version 1.20.0 → 1.21.0.
+
+### v1.20.0 (current — historical note kept)
 ① Env Check gains a **Git check-update (Windows only)** (same interaction as gh/gitee):
 
 - **Installed Git rows show a「检查更新」button on Windows only**: the host compares the local `git --version` against the latest official stable Git; when an update exists it confirms via `window.confirm` and upgrades in one click (live progress dialog).

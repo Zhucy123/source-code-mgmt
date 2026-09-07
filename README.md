@@ -155,11 +155,9 @@ dsh web
 | `/api/source-code-mgmt/env` | GET | 环境检查（git/gh 版本） |
 | `/api/source-code-mgmt/install-tool` | POST | 一键安装缺失工具（body `tool`: `git`/`gh`/`ssh`；gh 可另传 `source`: `official` 或 `gh-proxy.com`/`ghfast.top`/`ghproxy.net` 等镜像 id，按平台自适应：gh 在 Linux/macOS 免 sudo 装到 `~/.local/bin`；git/ssh 走系统包管理器 / brew / Xcode CLT / winget；响应为 **NDJSON 事件流**：`step`/`out`/`result`，供进度弹窗实时展示） |
 | `/api/source-code-mgmt/install-command` | POST | 按工具与下载源返回可复制的安装命令（body `tool` + 可选 `source`；与「安装」同源逻辑） |
-| `/api/source-code-mgmt/check-update` | POST | 检查 gh / gitee 是否有可用更新（body `tool`；返回 `{current, latest, hasUpdate}`） |
+| `/api/source-code-mgmt/check-update` | POST | 检查 gh / git 是否有可用更新（body `tool`；返回 `{current, latest, hasUpdate}`） |
 | `/api/source-code-mgmt/ssh` | GET | SSH 密钥 / config / gh 登录状态 |
 | `/api/source-code-mgmt/gh/login` | POST | 打开终端运行 `gh auth login`（交互式登录需用户在弹出终端完成；找不到终端时返回手动命令指引） |
-| `/api/source-code-mgmt/gitee/login` | POST | 打开终端运行 `gitee auth login`（官方 Gitee CLI 交互式登录，粘贴私人令牌） |
-| `/api/source-code-mgmt/gitee/import-token` | POST | 把 Gitee CLI 已保存的令牌（`gitee auth token`）导入插件存储，③ 即可直接使用 |
 | `/api/source-code-mgmt/gen-key` | POST | 生成 ed25519 密钥 |
 | `/api/source-code-mgmt/write-config` | POST | 写入 SSH config（body `provider`: `github` 默认 / `gitee`） |
 | `/api/source-code-mgmt/ssh-test` | POST | 测试 SSH 连接（body `provider`: `github` 默认 / `gitee`） |
@@ -221,7 +219,16 @@ dsh plugin --profile web add link:$(pwd)
 
 ## 版本历史
 
-### v1.20.0（当前）
+### v1.21.0（当前）
+**彻底移除 Gitee CLI + Gitee 私人令牌配置移到 ②**：
+
+- **背景**：Gitee CLI 不是刚需——插件核心的 Gitee 功能（建仓 / push / clone / ②③）靠**私人令牌（OpenAPI）** 与 **SSH 公钥**驱动，与 CLI 二进制无关；且 Windows 上安装经常失败（无 npm.exe 的 ENOENT / npm.cmd 的 EINVAL 坑）报「未找到可用的包管理器」误导。
+- **host 端**：删除 `GITEE` 常量、`env.gitee` 检测、`installHints.gitee`、`checkSsh` 的 `giteeLoggedIn/giteeAccount`、`giteeUserLevelScript`、`checkGiteeUpdate`、`giteeLoginTerminal`、`/gitee/login` 与 `/gitee/import-token` 路由、`installCommandSystem`/`installCommand`/`installToolFlow`/`toolInstalled`/`/check-update` 里的 gitee 分支；`installCommandSystem` 对未知工具（含 gitee）直接返回 null，避免误落到 gh 的包名。
+- **client 端**：① 环境检查固定检测 gh（不再按平台切 gitee CLI 行）；② **Gitee 私人令牌改在 ② 直接输入/保存/清除**（`/gitee-token` 存储，保存/清除后即时通知 ③④ 刷新）；③ 只读显示令牌配置状态（未配置时提示去 ②），移除「从 Gitee CLI 导入」按钮。
+- **保留不变**：Gitee 平台本身、私人令牌存储（`~/.dsh/storages`，0600）、建仓/push/clone、SSH 443 配置全部保留。
+- 变更范围：`lib/index.js`（重启 dsh web 生效）、`lib/client.js`（刷新即生效）。版本号 1.20.0 → 1.21.0。
+
+### v1.20.0（历史）
 ① 环境检查新增 **Git 检查更新（仅 Windows）**（复用 gh/gitee 的「检查更新」交互）：
 
 - **已安装的 Git 行显示「检查更新」按钮（仅 Windows 显示）**：host 对比本地 `git --version` 与 Git 官方最新稳定版本，有更新则 `window.confirm` 确认后一键升级（进度弹窗实时展示）。
