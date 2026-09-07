@@ -2,13 +2,11 @@
 
 > Version: **v1.21.0**　|　中文版见 [README.md](README.md)
 
-> A source-code management plugin for the DSH Web GUI: it bundles「environment check → SSH setup → commit/push/upload code」into one「Code Management」panel with GitHub / Gitee dual-platform support.
-
 > **Bilingual UI, live**: the panel and host-side messages follow DSH's language setting (Settings → General → Language) — switching between 中文 and English takes effect instantly, no refresh or restart needed.
 
-> The entry point adapts automatically: when [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) is installed,「Code Management」appears as a new sidebar **Tab** of that sidebar; otherwise a「Code Management」button is registered in the **right-aligned header list beside "Session log"** (same pill style, 8px gap), opening a right-side integrated panel that pushes the main content. Both forms share the same panel UI and no longer use a left-rail bottom button.
+> A source-code management plugin for the DSH Web GUI: one「Code Management」panel chains **① environment check → ② SSH key & connection → ③ code management → ④ clone repos → ⑤ publish npm package**, with GitHub / Gitee dual-platform support. The environment check auto-detects Git / GitHub CLI / SSH and can install missing tools in one click (platform-adaptive, sudo-free where possible; gh supports mirror download sources, including on Windows), plus a **check-update** to track new versions.
 
-> **UI language:** the panel follows DSH's language setting (Settings → General → Language), live — Chinese (中文) or English, including all host-side messages. No restart needed when you switch.
+> The entry point adapts automatically: with [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) installed,「Code Management」appears as a new sidebar **Tab**; otherwise a「Code Management」button stays pinned to the DSH **top-right** (beside "Session log" when a session is active; a fixed floating button in the empty state). Both forms open the same right-side integrated panel (pushing the main content) and share one panel UI.
 
 ## Features
 
