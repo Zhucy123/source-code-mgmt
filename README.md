@@ -2,22 +2,32 @@
 
 > [English](README.en.md) | 中文
 
-> 版本：**v1.21.0**　|　更新日志见文末「[版本历史](#版本历史)」
+> 版本：**v1.24.0**　|　更新日志见文末「[版本历史](#版本历史)」
 
 > **界面语言跟随 DSH 设置实时切换**：面板与 host 端消息自动使用 DSH 的语言（设置 → 通用 → 语言），中文 ↔ 英文即时生效，无需重启。
 
 > DSH Web GUI 源代码管理插件：一个「代码管理」面板把 **① 环境检查 → ② SSH 密钥与连接 → ③ 代码管理 → ④ 克隆仓库 → ⑤ 发布 npm 包** 全流程串起来，GitHub / Gitee 双平台通用。环境检查自动检测 Git / GitHub CLI / SSH，缺工具可一键安装（按平台自适应、尽量免 sudo；gh 支持镜像下载源加速，Windows 亦可用），并带「检查更新」跟进新版本。
 
-> 入口位置自适应：**已安装 [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) 时**，「代码管理」作为它侧边栏的一个新 Tab 页面出现；**未安装时**，「代码管理」按钮常驻 DSH **右上角**——有会话时放在「Session 日志」旁，无会话空态时改为固定的浮动按钮。两种形态都打开同一个右侧集成面板（推挤主内容区）、复用同一套面板 UI。
+> 入口位置自适应：**已安装 [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) 时**，「代码管理」作为它侧边栏的一个新 Tab 页面出现；**未安装时**，「代码管理」入口出现在 **DSH 右上角**（有会话时放在「Session 日志」旁；无会话/新对话时钉在右上角，**与有会话时逐像素同高**），且**不会占用左边栏**。两种形态都打开同一个右侧集成面板（推挤主内容区）、复用同一套面板 UI。
 
 ## 功能
 
 集成入口（二选一，自动检测，无需手动切换）：
 
 - **已安装 dsh-better-sidebar**：「代码管理」注册为它侧边栏的一个**新 Tab 页面**，点击侧边栏 Tab 直接打开面板；
-- **未安装 dsh-better-sidebar**：「代码管理」按钮常驻在 DSH **右上角**——有活跃（非空白）会话时通过 `conversation.session.header.utilities` 槽位放在「Session 日志」旁（同款胶囊、间距一致）；空白（新对话）/无会话空态时通过常驻的 `shell.overlay` 槽注册一个固定在右上角的浮动按钮（仅空白或没有会话时显示，活跃会话时交给 header 内的按钮，避免重复）。点击都打开一个 **dsh-better-sidebar 外观的右侧集成面板**（内容放同一面板），并把主内容区往左推挤。
+- **未安装 dsh-better-sidebar**：入口只注册在会话 header 里（两处**严格互斥**，任何时刻只有一个「代码管理」可见）——
+  - ① 有活跃（非空白）会话时：经 `conversation.session.header.utilities` 槽位放在「Session 日志」旁（同款胶囊、间距 8px 一致）；
+  - ② 空白（新对话）/无会话空态时：经常驻的 `shell.overlay` 槽注册一个常驻按钮，**钉在右上角、且与「有会话时」那枚按钮完全同高**。
+    - **纵向与有会话时对齐**：有会话时按钮在 header 的 utilities 行里，该行几何为 `.header` 的 `padding-top: 10px` + `.titleRow` 的 `min-height: 30px`（居中）⇒ 标题行占 y=10..40、中心 25px；按钮高 32px ⇒ top = `10 + (30 - 32)/2` = **9px**。空态按钮取同一个 9px，所以两种形态切换时按钮**不跳位**。桌面壳里再叠加 `--dsh-windows-titlebar-height`（普通浏览器为 0），写法是 `calc(var(--dsh-windows-titlebar-height, 0px) + 9px)`。
+    - **横向**内缩 `right: 48px`，**让开空态 header 右上角已有的「右侧栏展开按钮」**：空态下 `.headerBlank .headerCorner` 带 `margin-left: auto`，把 ui-sidebar-right 的 ExpandButton（28×28 圆钮）顶到最右，其盒子位于视口右侧 **12px～40px**（`.header` 的 `padding-right: 28px` 减去 `.headerCorner` 的 `margin-right: -16px` 得到右缘 12px）。`48 = 40 + 8`（8px 与 header 内其它控件的间距一致），整个按钮落在圆钮左侧、互不相交。
 
-> 检测只是激活时一次内存读取（`ctx.get('betterSidebar')`），零 I/O、零网络，不影响 DSH 启动速度；两种形态间自动切换。未安装 better-sidebar 时入口常驻右上角（有会话=Session 日志旁，空态=固定右上角浮动按钮），空态/新对话也可见。
+  两处点击都打开同一个 **dsh-better-sidebar 外观的右侧集成面板**（内容放同一面板），并把主内容区往左推挤。
+
+  > **刻意不注册进 DSH 自带侧边栏**（`sidebar.footer.action`）——那个入口会挤在左边栏「设置」上方，与侧栏自身的项混在一起。
+  >
+  > 也刻意不去抢 DSH 自己的**单占位**槽：`conversation.session.header.corner` 已被自带右侧栏开关（ui-sidebar-right 的 ExpandButton）占用，`conversation.session.header.leading` 被自带侧栏开关（ui-sidebar 的 HeaderLeadingControls）占用；`sidebar.panellist` 的每一项 id 必须是真实主面板 id（会交给 `layout.selectPanel`），本插件没有主面板，注册进去只会得到点不动的死按钮。
+
+> 检测只是激活时一次内存读取（`ctx.get('betterSidebar')`），零 I/O、零网络，不影响 DSH 启动速度；两种形态间自动切换。未安装 better-sidebar 时入口常驻右上角（有会话=Session 日志旁，空态=右上角常驻按钮，两者同高），空态/新对话也可见。
 
 面板分五步（①②③ 为核心三步，④⑤ 为新扩展板块，默认折叠按需展开）：
 
@@ -38,12 +48,18 @@
 - **平台选择**：下拉选择代码托管平台 **GitHub（默认）** / **Gitee**，决定下面的 SSH 配置写入与连接测试目标
 - **自动探测 ed25519 密钥**：扫描 `~/.ssh/*.pub` 中已存在的 ed25519 公钥——**优先用 `id_ed25519`**；否则用找到的第一个（支持任意命名的密钥，如 `github_ed25519`）；都没有则默认名 `id_ed25519`。状态行显示**实际检测到的密钥文件名**，SSH config 的 `IdentityFile` 也用它
 - 一键**生成 ed25519 密钥**（无密码；本地已有 ed25519 密钥时复用，不会重复生成）
-- 一键**写入 SSH config**（GitHub：`github.com → ssh.github.com:443`；Gitee：`gitee.com` 443 端口；均为 443 端口满足国内网络绕过 22 端口封锁）
-- **测试连接** `ssh -T git@github.com`（GitHub）或 `ssh -T git@gitee.com`（Gitee）
+- 一键**写入 SSH config**，**端口可选**（见下）：
+  - **443（穿墙，默认）**：GitHub 写 `github.com → ssh.github.com:443`；Gitee 写 `gitee.com:443`。用于绕过**封锁 22 端口**的网络。
+  - **22（标准）**：GitHub 写 `github.com → github.com:22`（标准端点）。家宽 / 办公室 / VPS 通常直连即可。
+  - 切换端口后再次点「配置 SSH(config)」会**就地改写** `~/.ssh/config` 里对应的 `Host` 块（不会留下重复块，也不动其它 `Host`）；状态行显示的是**实际配置的端口**（host 端解析 `~/.ssh/config` 得出），不再是写死的 `(443)`。
+  - 「测试连接」也按所选端口测试（`ssh -T -p <port>`），失败时提示「若是网络封锁 22 端口，请改用 443」。
+- **测试连接** `ssh -T -p <port> git@<host>`（GitHub 走 `ssh.github.com` / `github.com`，Gitee 走 `gitee.com`）
 - 显示公钥内容，方便复制上传到对应平台
 - 检测 `gh` 是否已登录及账号
 
-> **海外用户需要 443 吗？——不需要。** 「写 SSH config」是**可选的**（仅在你点按钮时才会写入 `~/.ssh/config`）。GitHub 官方标准端点就是 `git@github.com` 走 **22 端口**，海外正常网络开箱即用，直接跳过该按钮：生成密钥 → 把公钥贴到 GitHub → 测试连接 → 推送，全程 22 端口。443 配置（`Host github.com → HostName ssh.github.com, Port 443`）是 GitHub **官方支持的**端口 22 封锁兜底方案，典型场景是国内网络、部分公司/校园网；写了也无害（仅当 443 也被封锁时才反而不通，极少数网络）。Gitee 是国内平台，海外用户基本只会用到 GitHub。
+> **443 与「是否有代理」无关（常见误解）。** 普通 HTTP 代理只对 git-over-HTTPS / curl 生效；**OpenSSH 完全无视 `HTTP_PROXY` / `HTTPS_PROXY`**（要走代理得配 `ProxyCommand`）。所以「我开了代理」并不等于「22 端口通了」——该不该用 443 取决于你的网络**是否封锁 22 端口**，因此这里交给用户自己选，而不是由插件猜测。
+>
+> **海外/正常网络需要 443 吗？——不需要。** 「写 SSH config」本身是**可选的**（只有你点按钮才写 `~/.ssh/config`）。GitHub 标准端点就是 `git@github.com` 走 **22 端口**，正常网络开箱即用：生成密钥 → 把公钥贴到 GitHub → 测试连接 → 推送，全程 22 端口。443（`Host github.com → HostName ssh.github.com, Port 443`）是 GitHub **官方支持**的兜底方案，典型场景是国内网络、部分公司/校园网；只有当 443 也被封锁时才会反而不通（极少数网络）。Gitee 是国内平台，海外用户基本只会用到 GitHub。
 
 ### ③ 代码管理
 - **跟随 ② 平台**：本区所有「检测/新建/可见性」逻辑随 ② 的平台选择切换（GitHub 走 `gh` CLI，Gitee 走 Gitee OpenAPI）
@@ -219,7 +235,98 @@ dsh plugin --profile web add link:$(pwd)
 
 ## 版本历史
 
-### v1.21.0（当前）
+### v1.24.0（当前）
+**③ 加载提速：把「每个文件一次 git」改成批量调用（实测每次加载省 ~1.2s）**：
+
+- **先回答「为什么开代理没变快」**：push/pull/fetch 走的是 **SSH**（`git@github.com:...`），而 **OpenSSH 不使用 `HTTP_PROXY`/`HTTPS_PROXY`/`git http.proxy`**——已实测（`ssh -G` 在设了这些变量后不产生任何代理指令）。代理只对 **git-over-HTTPS** 生效。所以对 SSH 远端，开系统代理**不会**改变速度；这是协议决定的，不是配置问题。要让 SSH 走代理必须显式配 `ProxyCommand`（需要 `ncat`/`connect` 之类的辅助程序，本机没有）。
+- **实测瓶颈分布**（本机真实仓库，单个工作区）：
+  | 阶段 | 耗时 |
+  |---|---|
+  | 本地 git 调用（branch/status/ls-files/remote/rev-list） | ~330 ms |
+  | 其中「每个改动文件一次 `git diff --numstat`」 | **~1250 ms**（30 个改动 → 30 次进程） |
+  | `git fetch`（联网，仅 `full` 模式） | ~4000 ms |
+  | SSH 握手本身 | ~3200 ms |
+  根因：Windows 上**每次 `git` 进程约 35ms**，旧代码对「工作区副本不存在」的改动文件逐个跑 `git diff --numstat -- <path>`，是典型 N+1。
+- **修复**：
+  - 新增 `viewableMap()`：二进制判定**批量**做——先直接读文件头 8KB 嗅探（零进程），只有确实读不到的文件才汇总成**至多一次** `git diff --numstat`（按暂存/未暂存分两批）。
+  - `providerRemoteInfo()`：用**一次** `git remote -v` 同时拿到远程名与 URL，替换原先「`git remote` + 每个远程一次 `get-url`」以及 `repoStatus` 里又一次 `get-url`。
+  - **实测：1258 ms → 58 ms**（30 个改动文件），加上远程查询共**每次加载省约 1.24 s**。
+- **语义保持一致（有测试兜底）**：新增 `tools/verify-viewable-batch.test.mjs`（9 项），在**真实临时仓库**里同时跑「旧实现」与「新实现」，断言两者对每个文件给出**完全相同的结论**。这个对照测试当场抓出一个我引入的回归：**已删除文件**上 `git diff --numstat` 不输出任何行，旧逻辑判为「不可预览」（正确——没有工作区副本可看），我的批量版一开始误判为「可预览」。已修回与旧实现一致。
+- 定位瓶颈与验证优化时用的是一次性计时脚本（对**真实仓库**逐项计时，上表数字即由此得出）；脚本本身无断言、不参与回归，用完已删除，未随仓库保留。
+- **结论/建议**：本地加载约 0.1s 量级、已经很快；`fetch` 那 4s 是网络与 SSH 握手成本，**代理帮不上**，只能靠「少 fetch」——插件已默认在快速模式**不联网 fetch**（用本地 tracking ref 算 ahead/behind），只有点「刷新状态」才联网。
+- **顺带清理**：删掉 4 个无断言的纯诊断脚本（`scan-keys` / `scan-host-keys` / 两个计时脚本）和 1 个在本机跑不起来的旧测试（`verify-cn-paths.test.mjs` 硬编码了 `C:\Users\Administrator\workspace`）。带断言的 `verify-*.test.mjs` 与 i18n 工作流全部保留。
+- 变更范围：`lib/index.js`（**需重启 dsh web** 生效）、`README.md`、`README.en.md`、`package.json`。版本号 1.23.0 → 1.24.0。
+
+### v1.23.0（历史）
+**SSH 端口改为用户可选（443 穿墙 / 22 标准）**：
+
+- **需求**：用户提出「有代理的话是不是不用配 443，可以让用户自己选」。核实后按「做成可选」实现。
+- **先纠正一个前提（已实测）**：**SSH 不使用 `HTTP_PROXY` / `HTTPS_PROXY`**——用 `ssh -G` 验证过，设了这些环境变量后 OpenSSH 不会产生任何代理指令（要走代理必须配 `ProxyCommand`）。所以「有代理」≠「22 端口通」；443 的真正意义是绕过**封锁 22 端口**的网络。因此做成**用户按网络情况自己选**，而不是由插件按「有没有代理」去猜。
+- **host 端**（`lib/index.js`）：
+  - `providerCfg(provider, port)` 接受端口，并据此决定 `Hostname`——443 用 GitHub 的 `ssh.github.com`，22 用标准 `github.com`（Gitee 两种都用自身域名）。
+  - 新增 `normalizePort()`：只接受 `22` / `443`，其余一律回退 443（避免脏输入写坏配置）。
+  - `writeSshConfig(provider, port)`：端口变了会**就地改写** `~/.ssh/config` 里对应的 `Host` 块（用新增的 `hostBlockSpan()` 定位行区间），**不产生重复块、不影响其它 `Host`**；端口未变则仍是幂等 no-op。
+  - `sshTest(provider, port)`：显式带 `-p <port>`（443 时直接指向 `git@ssh.github.com`），不再依赖配置文件先写好。
+  - 路由 `/write-config`、`/ssh-test` 透传端口；`checkSsh()` 新增 `sshGitHubPort` / `sshGiteePort`（从配置解析实际端口）。
+- **client 端**（`lib/client.js`）：② 的「SSH 配置」行加端口下拉（`443（穿墙）` / `22（标准）`）；状态文案显示**实际配置的端口**（不再写死 `(443)`）；首次读到已有配置时选择器跟随一次，之后以用户选择为准（不覆盖用户手动切换）；「测试连接」按所选端口测，失败提示「若是网络封锁 22 端口，请改用 443」。
+- **测试**：新增 `tools/verify-ssh-port.test.mjs`（16 项：端口归一化、`Host` 块解析/端口读取、相邻块不误吞、`github.com.evil` 之类**相似域名不误匹配**、路由透传）；新增 `tools/verify-ssh-port-e2e.test.mjs`（7 项：在**临时目录**里真实跑「写 443 → 幂等 → 切 22 就地改写 → 切回 443 → 保留其它 Host → 追加 Gitee 不干扰」，不触碰真实 `~/.ssh/config`）；新增 `tools/verify-ssh-crlf.test.mjs`（4 项）与 `tools/verify-ssh-crlf-write.test.mjs`（5 项）；新增 `tools/verify-en-dict.mjs`（校验新 UI 文案的英文翻译已进内联词典，`280 → 287`）。
+- **顺带修掉一个会被本机配置直接踩中的 bug（换行符）**：Windows 上 `~/.ssh/config` 常见是 **CRLF** 换行。原先的「就地改写」把文件按 `\n` 切开再按 `\n` 拼回，会让**被改写的那个 `Host` 块退化成 LF**，整个文件变成 CRLF/LF 混合（在 dotfiles 仓库里表现为整段 diff）。现已改为**按文件自身的换行符切分与拼接**（`const eol = current.includes('\r\n') ? '\r\n' : '\n'`），新写入的块、追加的块、以及拼接缝都保持原样。这组 CRLF 用例是拿本机真实配置（确认就是 CRLF）验证出来的。
+- 变更范围：`lib/index.js`（**需重启 dsh web** 生效）、`lib/client.js`（刷新页面生效）、`README.md`、`package.json`。版本号 1.22.4 → 1.23.0（新功能，次版本号 +1）。
+
+### v1.22.4（历史）
+**空态按钮下移到与「有会话时」完全相同的高度**：
+
+- **症状**：没有会话时，「代码管理」按钮比有会话时**高了几个像素**，切换会话时位置会跳。
+- **根因**：上一版把空态按钮的 `top` 对齐到了**侧栏开关**那一行（`calc((var(--dsh-windows-titlebar-height, 40px) - 28px) / 2)` = 6px），但「有会话时」的按钮挂在 header 的 utilities 行里，其高度由**另一套几何**决定：`.header` 的 `padding-top: 10px` + `.titleRow` 的 `min-height: 30px`（居中）⇒ 标题行 y=10..40、中心 25px；按钮高 32px ⇒ top = `10 + (30 - 32)/2` = **9px**。两者差 3px。
+- **修复**：空态按钮改用 header 自身的几何表达 `top = SCM_HEADER_PAD_TOP + (SCM_TITLE_ROW_H - SCM_BUTTON_H) / 2 = 9px`（常量 `10 / 30 / 32` 分别对应 `.header` 的 padding-top、`.titleRow` 的 min-height、`headerBtnStyle` 的 height），桌面壳再叠加 `--dsh-windows-titlebar-height`（普通浏览器回退 `0px`，即精确 9px）。两种形态切换时按钮**逐像素同位、不跳位**。
+- 回归测试把「纵向」断言整组换掉：新增「空态与有会话时同高（由 header 度量推导出同一个 9px）」、「按钮高度必须等于 `headerBtnStyle` 的 32px」、「叠加标题栏偏移」三项，并断言旧的 6px 公式不得残留（共 13 项）；用变异测试验证过改回 6px 会被抓出。另抽出 `stripComments()` 助手，让「禁止残留」类断言只匹配代码、不被解释性注释误伤。
+- 变更范围：`lib/client.js`（刷新页面即生效）、`README.md`、`package.json`（版本号）。版本号 1.22.3 → 1.22.4。
+
+> **本轮（v1.22.0 → v1.22.4）新增的回归测试文件**（随包发布，不在 `files` 白名单内，仅供本地校验）：
+> - `tools/verify-entry-placement.test.mjs` —— 入口**几何位置**与**槽位选择**回归（13 项）。
+> - `tools/verify-entry-runtime.test.mjs` —— 在模拟 cordis 运行时里**真实执行 `apply(ctx)`**、并用模拟 session 快照**真实渲染**每个注册项，验证两个分支与入口互斥（13 项）。
+>
+> 运行：`node tools/verify-entry-placement.test.mjs` / `node tools/verify-entry-runtime.test.mjs`
+
+### v1.22.3（历史）
+**空态入口让开右上角的「右侧栏展开按钮」（修掉横向重叠）**：
+
+- **症状**：上一版把空态常驻按钮设成 `right: 12px` 后，它与 DSH 空态 header 右上角已有的按钮**叠在一起**。
+- **根因**：那个按钮不是左侧栏开关，而是 **ui-sidebar-right 的 ExpandButton（右侧栏展开按钮）**。空态下 `.headerBlank .headerCorner` 带 `margin-left: auto`，把它顶到最右；按 DSH 的 CSS 算它的盒子：`.header` 是 `padding-right: 28px`、`.headerCorner` 是 `margin-right: -16px`、圆钮宽 `28px` ⇒ 它占据视口右侧 **12px～40px**。`right: 12` 正好把「代码管理」的右缘压在同一条线上。
+- **修复**：改为 `right: 48px`（常量 `SCM_TOPRIGHT_OFFSET = 48`）= 圆钮左缘 40px + 8px 间距（与 header 内其它控件的 8px 间距一致），整个按钮落在圆钮左侧、互不相交。纵向当时仍复用 DSH 自己的公式（该纵向写法已在 v1.22.4 被替换为「与有会话时同高」，见上）。
+- 回归测试新增 3 项几何断言：**右缘必须 ≥ 展开按钮左缘**（`SCM_TOPRIGHT_OFFSET >= 40`，并断言 `right: 12` 不得再出现）、偏移量恰为 `40 + 8`；并用变异测试验证过把偏移改回 `12` 会被抓出。（当时共 14 项；v1.22.4 重排纵向断言后为 13 项。）
+- 变更范围：`lib/client.js`（刷新页面即生效）、`README.md`。版本号 1.22.2 → 1.22.3。
+
+### v1.22.2（历史）
+**空态入口改回右上角、与 DSH 自带控件同一行**：
+
+- **按用户反馈调整位置**：空态（无会话 / 新对话）时常驻按钮此前被钉在会话 header **下方**（`top: 84px; right: 28px`），用户要求改回**右上角**——即与 DSH 自带侧栏开关同一条水平线上。
+- **用 DSH 自己的公式对齐，而不是写死像素**：DSH 在 Windows 桌面壳下把侧栏开关钉成 `position: fixed; top: calc((var(--dsh-windows-titlebar-height) - 28px) / 2); left: 12px`（ui-sidebar 的 `SidebarRoot.module.css`，「新会话」按钮同一条公式、`left: 48px`）。本插件复用**同一条公式**（带 `40px` 回退值，取自 `apps/desktop` 的 `WINDOWS_TITLEBAR_HEIGHT`），所以标题栏高度变化时按钮自动跟着走、不会错位；普通浏览器下变量缺失时退化为 `6px`，与桌面壳完全一致。
+- **横向不再遮挡**：自带开关在**左侧** `left: 12px`，插件按钮贴**右侧** `right: 12px`，两者分居两端，不会叠在一起。
+- 回归测试 `verify-entry-placement.test.mjs` 同步更新：新增「复用 DSH 的纵向公式」「公式与 DSH 逐字一致（只差回退值）」「浏览器回退与桌面壳同为 6px」「不再钉在 header 下方」四项断言（共 12 项）。
+- 变更范围：`lib/client.js`（刷新页面即生效）、`README.md`。版本号 1.22.1 → 1.22.2。
+
+### v1.22.1（历史）
+**修复「同时出现两个『代码管理』入口」+ 移除左边栏入口**：
+
+- **移除左边栏入口（按用户要求）**：不再注册进 DSH 自带侧边栏底部（`sidebar.footer.action`）——那个入口会挤在左边栏「设置」上方。同时删掉只为此存在的跨 React 根订阅桥（`openScmPanel()`/`scmOpenListeners`）和 `SidebarFooterScmAction` 组件。入口现在只保留会话 header 里的两处。
+- **修复「两个『代码管理』」根因**：`sessions.list.getSnapshot()` 返回的是 `SessionListState`，形状为 `{ ids, byId, phase, subagentsByParent, jobsBySession }`——**没有 `current` 字段**。而空态常驻入口的显隐判断读的是 `snap.current`，永远拿到 `undefined`，于是 `hasActiveSession` 恒为 `false`：即使主视图正展示一个活跃会话，常驻按钮也照样渲染，与 header utilities 里的按钮**同时出现两个**。
+- **修复方式**：改用 DSH 自己的判定惯例 `retainedBy.mainView > 0`（`ui-layout/DocumentTitle`、`ui-workspace/WorkspaceBrowser`、`ui-settings-general` 等 5 处都这么写），新增 `activeMainSession(snap)` helper；并给「DSH 版本未提供 `retainedBy`」加了兜底（退回「非空白会话里 `updatedAt` 最新的一条」），拿不准时宁可认为有活跃会话，保证任何时候都不出现两个按钮。
+- **两个入口改为严格互斥**：header utilities 那个不再直接注册裸按钮，而是注册自门控的 `HeaderScmEntry`——只有主视图展示「非空白」会话时才渲染；常驻入口只在否则情况下渲染。两者由同一个信号（`activeMainSession`）决定，不再依赖 DSH 的 `hideChrome` 时机，从构造上不可能同时出现。
+- 新增回归测试：`verify-entry-runtime.test.mjs` 会用模拟的 session 快照**真实渲染**每个注册项，断言「非空白会话 / 空白会话 / 无会话 / 非主视图空白会话 / 缺 `retainedBy`」五种状态都恰好只显示一个 header 入口、且**没有任何入口渲染在 header 之外**（共 13 项）；并用变异测试验证过这些断言确实能抓出该 bug。`verify-entry-placement.test.mjs` 增至 12 项（含「不得注册进左边栏」「恰好两个入口」）。
+- 变更范围：`lib/client.js`（刷新页面即生效）、`README.md`。版本号 1.22.0 → 1.22.1。
+
+### v1.22.0（历史）
+**修复「未安装 dsh-better-sidebar 时，『代码管理』按钮压住 DSH 自带侧边栏按钮」**：
+
+- **根因**：空态常驻入口此前用 `position: fixed; top: 8px; right: 12px`（按钮高 32px → 纵向 y=8..40）。而 DSH 自带侧栏开关（`ui-sidebar` 的 `HeaderLeadingControls`，注册在 `conversation.session.header.leading`）位于会话 header 的 30px 标题行内——`.header` 是 `padding: 10px 28px 0 20px`，即自带按钮落在 y≈10..40；空态下 `.headerCorner` 还带 `margin-left: auto`，右侧同行同样被占。两条带直接相交，于是按钮叠在一起。
+- **修复**：空态常驻按钮从那条带里挪出来——改钉在**会话 header 之下**（`top: 84px; right: 28px`，即 `.header` 的 76px 高度 + 8px、右缩进对齐 header 的 28px 内边距），与自带侧栏按钮在**纵向和横向都不相交**；有会话时的入口（Session 日志旁）本来就与自带按钮不在同一侧，保持不变。
+- **刻意避开的槽位**（避免与 DSH 互相顶掉或产生死按钮）：`conversation.session.header.corner` 是 `single` 槽且已被自带右侧栏开关（`ui-sidebar-right` 的 `ExpandButton`）占用；`conversation.session.header.leading` 是 `single` 槽、被自带侧栏开关占用；`sidebar.panellist` 的每一项 id 必须是真实主面板 id（会交给 `layout.selectPanel`），本插件没有主面板。
+- 新增 `tools/verify-entry-placement.test.mjs`（几何 + 注册位回归）与 `tools/verify-entry-runtime.test.mjs`（在模拟 cordis 运行时里真实跑 `apply(ctx)`，断言两个分支的注册结果）。
+- 变更范围：`lib/client.js`（刷新页面即生效）、`README.md`。host 端 `/api` 路由未改动。版本号 1.21.0 → 1.22.0。
+- 注：本版曾同时新增「注册进 DSH 自带侧边栏底部」的入口，已在 v1.22.1 按用户要求移除。
+
+### v1.21.0（历史）
 **彻底移除 Gitee CLI + Gitee 私人令牌配置移到 ②**：
 
 - **背景**：Gitee CLI 不是刚需——插件核心的 Gitee 功能（建仓 / push / clone / ②③）靠**私人令牌（OpenAPI）** 与 **SSH 公钥**驱动，与 CLI 二进制无关；且 Windows 上安装经常失败（无 npm.exe 的 ENOENT / npm.cmd 的 EINVAL 坑）报「未找到可用的包管理器」误导。
@@ -348,7 +455,7 @@ GitHub CLI 下载提速 + gh 登录按钮 + 移除一键重启：
 - **新增文件不再显示「旧版本」列**：并排 diff 在没有任何删除行（纯新增，如新增/untracked 文件）时只显示「新版本」一列，不再出现空白的「旧版本」表头与左列；有增有删的修改仍保留双列对比。
 - **二进制文件不显示「查看」**：每个改动文件按内容嗅探（NUL 字节启发式，与 git 一致）判断是否可文本预览——二进制文件（图片、exe 等）不显示「查看」按钮（悬停提示「二进制文件，无法查看文本内容」）；已删除/暂存后无副本的文件用 `git diff --numstat`（二进制条目 `-\t-`）判断。
 - **中文文件名兼容性修复**：git 默认 `core.quotepath` 会把中文路径输出成八进制转义的引号串（如 `"\346\270\270…md"`），导致改动列表与 diff 头部的中文文件名显示成乱码。现在所有 git 调用统一注入 `-c core.quotepath=false`（直接输出 UTF-8 路径），并新增 `parseGitPath()` 反转义兜底——改动列表、`ls-files -z`、`diff --name-only`、`git diff`/`git show` 头部路径等解析点全覆盖。
-- 新增 `tools/verify-cn-paths.test.mjs` 回归测试（中文路径解析、文本/二进制可查看性、新增文件 diff 生成、已删除文件判断）。
+- 新增 `tools/verify-cn-paths.test.mjs` 回归测试（中文路径解析、文本/二进制可查看性、新增文件 diff 生成、已删除文件判断）。（该文件硬编码了 `C:\Users\Administrator\workspace`，在本机跑不起来，已于 v1.24.0 删除；相关覆盖由 `tools/verify-viewable-batch.test.mjs` 承担。）
 
 ### v1.10.1（历史）
 本次更新（修复 better-sidebar 集成与「未安装 better-sidebar」时入口的若干问题）：

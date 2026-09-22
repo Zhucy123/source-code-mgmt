@@ -1,19 +1,22 @@
 # source-code-mgmt — DSH Source Code Management Plugin
 
-> Version: **v1.21.0**　|　中文版见 [README.md](README.md)
+> Version: **v1.24.0**　|　中文版见 [README.md](README.md)
 
 > **Bilingual UI, live**: the panel and host-side messages follow DSH's language setting (Settings → General → Language) — switching between 中文 and English takes effect instantly, no refresh or restart needed.
 
 > A source-code management plugin for the DSH Web GUI: one「Code Management」panel chains **① environment check → ② SSH key & connection → ③ code management → ④ clone repos → ⑤ publish npm package**, with GitHub / Gitee dual-platform support. The environment check auto-detects Git / GitHub CLI / SSH and can install missing tools in one click (platform-adaptive, sudo-free where possible; gh supports mirror download sources, including on Windows), plus a **check-update** to track new versions.
 
-> The entry point adapts automatically: with [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) installed,「Code Management」appears as a new sidebar **Tab**; otherwise a「Code Management」button stays pinned to the DSH **top-right** (beside "Session log" when a session is active; a fixed floating button in the empty state). Both forms open the same right-side integrated panel (pushing the main content) and share one panel UI.
+> The entry point adapts automatically: with [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) installed,「Code Management」appears as a new sidebar **Tab**; otherwise it appears at the DSH **top-right** — beside "Session log" while a session is active, and pinned at the top-right at the **exact same height** when there is no session. It never occupies DSH's own left sidebar. Both forms open the same right-side integrated panel (pushing the main content) and share one panel UI.
 
 ## Features
 
 Entry points (auto-detected, no manual switching):
 
 - **dsh-better-sidebar installed:**「Code Management」registers as a new **Tab page** of its sidebar;
-- **dsh-better-sidebar not installed:** a「Code Management」button in the **right-aligned header list beside "Session log"** (registered through DSH's `conversation.session.header.utilities` slot), opening a right-side integrated panel that pushes the main content left.
+- **dsh-better-sidebar not installed:** the entry lives in the conversation header only, in two **strictly mutually exclusive** places (exactly one is visible at any time):
+  - ① with an active (non-blank) session: the **right-aligned list beside "Session log"** (`conversation.session.header.utilities`);
+  - ② with no session / a blank new chat: a pinned entry at the **top-right**, at the **same height** as ①.
+  Neither overlaps DSH's own controls, and nothing is ever registered into DSH's left sidebar.
 
 > Detection is a single in-memory read at activation time (`ctx.get('betterSidebar')`) — zero I/O, zero network, no impact on DSH startup.
 
@@ -216,7 +219,72 @@ dsh plugin --profile web add link:$(pwd)
 
 ## Version history
 
-### v1.21.0 (current)
+### v1.24.0 (current)
+**③ faster loading: batch the git calls (measured ~1.2s saved per load)**:
+
+- **Why a system proxy does not help**: push/pull/fetch go over **SSH** (`git@github.com:...`), and **OpenSSH ignores `HTTP_PROXY` / `HTTPS_PROXY` / `git http.proxy`** — verified with `ssh -G`. Those variables only affect **git-over-HTTPS**. So for an SSH remote, a system proxy cannot change the speed; that is a protocol fact, not a misconfiguration. Routing SSH through a proxy requires an explicit `ProxyCommand` (needs a helper like `ncat`/`connect`, absent here).
+- **Measured breakdown** (real repo on this machine): local git calls ~330 ms; of that, **one `git diff --numstat` per changed file ≈ 1258 ms** (30 changes → 30 processes); `git fetch` ≈ 4000 ms (network, `full` mode only); SSH handshake alone ≈ 3200 ms. Root cause: a `git` process costs ~35 ms on Windows, and the old code spawned one per file — a classic N+1.
+- **Fix**: new `viewableMap()` batches the binary check — a direct 8KB header read (no process) for files that exist, and at most **one** `git diff --numstat` for the rest (split into staged/unstaged batches). New `providerRemoteInfo()` uses **one** `git remote -v` to get both the remote name and URL, replacing `git remote` + a `get-url` per remote plus another `get-url` in `repoStatus`. **Measured: 1258 ms → 58 ms**, ~1.24 s saved per load.
+- **Semantics preserved (test-enforced)**: new `tools/verify-viewable-batch.test.mjs` (9 checks) runs the OLD and NEW implementations against a real scratch repo and asserts they agree on every file. It caught a regression I introduced: `git diff --numstat` prints nothing for a **deleted** file, so the old logic correctly called it "not previewable" (there is no working copy); the first batched version wrongly said "previewable". Fixed to match.
+- Bottleneck profiling and optimization verification were done with one-off timing scripts run against a real repo (the source of the numbers above); they carry no assertions and are not part of the regression suite, so they were deleted after use rather than kept in the repo.
+- **Takeaway**: local loading is now ~0.1s and feels instant; the ~4s is network + SSH handshake and **a proxy cannot help**. The plugin already skips the network fetch in fast mode (using the local tracking ref for ahead/behind), only fetching when you click "Refresh status".
+- **Also cleaned up**: removed 4 assertion-free diagnostic scripts (`scan-keys` / `scan-host-keys` / two timing scripts) and 1 pre-existing test that cannot run on this machine (`verify-cn-paths.test.mjs`, which hardcodes `C:\Users\Administrator\workspace`). Every asserting `verify-*.test.mjs` and the i18n workflow are kept.
+- Scope: `lib/index.js` (**restart dsh web**), `README.md`, `README.en.md`, `package.json`. Version 1.23.0 → 1.24.0.
+
+### v1.23.0 (historical)
+**SSH port is now user-selectable (443 through firewalls / 22 standard)**:
+
+- **Request**: "if I have a proxy, do I even need 443? let the user choose." Implemented as a user choice.
+- **Correcting a common premise (verified)**: **SSH does not use `HTTP_PROXY` / `HTTPS_PROXY`** — `ssh -G` produces no proxy directive even with them set. So "I have a proxy" does not mean "port 22 works"; 443 exists to get around networks that **block port 22**. Hence the choice belongs to the user, keyed off their network — not guessed from the presence of a proxy.
+- **Host**: `providerCfg(provider, port)` picks the `Hostname` (443 → GitHub's `ssh.github.com`, 22 → standard `github.com`; Gitee uses its own host either way). New `normalizePort()` accepts only 22/443 (anything else falls back to 443). `writeSshConfig(provider, port)` **rewrites the matching `Host` block in place** when the port changes (located via the new `hostBlockSpan()`), producing no duplicate blocks and leaving other `Host` entries alone; an unchanged port stays an idempotent no-op. `sshTest(provider, port)` passes `-p <port>` explicitly. `checkSsh()` reports `sshGitHubPort` / `sshGiteePort`.
+- **Client**: ② gains a port dropdown (443 / 22); the status line shows the **actual configured port** (no longer a hardcoded `(443)`); the selector follows an existing config once, then respects your choice; the connection test uses the selected port and suggests 443 when port 22 appears blocked.
+- **Also fixed: CRLF corruption.** A Windows `~/.ssh/config` is frequently CRLF. The in-place rewrite split on `\n` and rejoined on `\n`, degrading the rewritten block to LF and leaving the file mixed (a whole-file diff in a dotfiles repo). Now the file's own EOL is used for splitting, joining, the new block, and appended blocks. Found by testing against this machine's real config (confirmed CRLF).
+- Tests: `tools/verify-ssh-port.test.mjs` (16), `tools/verify-ssh-port-e2e.test.mjs` (7, temp dir), `tools/verify-ssh-crlf.test.mjs` + `tools/verify-ssh-crlf-write.test.mjs` (4 + 5).
+- Scope: `lib/index.js` (**restart dsh web**), `lib/client.js` (refresh), `README.md`, `package.json`. Version 1.22.4 → 1.23.0.
+
+### v1.22.4 (historical)
+**Empty-state button moved to exactly the active-session height**:
+
+- **Symptom**: with no session,「Code Management」sat a few pixels higher than with one, so it jumped when switching.
+- **Cause**: the previous version aligned its `top` to the **sidebar toggle's** row (6px), but the active-session button lives in the header's utilities row, governed by different metrics: `.header` `padding-top: 10px` + `.titleRow` `min-height: 30px` (centred) → row y=10..40, centre 25px; a 32px button → top = `10 + (30-32)/2` = **9px**. A 3px difference.
+- **Fix**: the empty-state top is now derived from the header's own metrics (`SCM_HEADER_PAD_TOP + (SCM_TITLE_ROW_H - SCM_BUTTON_H)/2` = 9px), plus `--dsh-windows-titlebar-height` on the desktop shell (`0px` in a plain browser). The two states are now pixel-identical.
+- Tests: the vertical assertions were rewritten to check "same height as active-session", that the button height matches `headerBtnStyle`, and that the old 6px formula is gone (13 checks).
+- Scope: `lib/client.js` (refresh), `README.md`. Version 1.22.3 → 1.22.4.
+
+### v1.22.3 (historical)
+**Empty-state entry clears the right-sidebar expand button (horizontal overlap)**:
+
+- **Symptom**: `right: 12px` put it **on top of** the button already at the empty-state header's top-right.
+- **Cause**: that button is **ui-sidebar-right's ExpandButton** (the right-sidebar toggle). In the empty state `.headerBlank .headerCorner` has `margin-left: auto`, pushing it to the far right; by DSH's CSS (`.header` `padding-right: 28px`, `.headerCorner` `margin-right: -16px`, a 28px circle) it occupies **12px..40px** from the right edge — exactly where `right: 12` placed us.
+- **Fix**: `right: 48px` (`SCM_TOPRIGHT_OFFSET = 48`) = the button's left edge (40px) + the standard 8px gap.
+- Tests: 3 geometry assertions added, including "our right edge must be ≥ the expand button's left edge" and that `right: 12` cannot reappear; mutation-tested.
+- Scope: `lib/client.js` (refresh), `README.md`. Version 1.22.2 → 1.22.3.
+
+### v1.22.2 (historical)
+**Empty-state entry moved back to the top-right, aligned to DSH's own controls**:
+
+- The pinned button had been placed **below** the conversation header (`top: 84px; right: 28px`); the user asked for the top-right instead.
+- Vertical alignment reused DSH's own formula `calc((var(--dsh-windows-titlebar-height, 40px) - 28px) / 2)` (the one ui-sidebar uses to pin the sidebar toggle at `left: 12px`), so the button tracked the shell's titlebar height. (Superseded in v1.22.4 by the "same height as a session" formula.)
+- Scope: `lib/client.js` (refresh), `README.md`. Version 1.22.1 → 1.22.2.
+
+### v1.22.1 (historical)
+**Fixed duplicate「Code Management」entries + removed the left-sidebar entry**:
+
+- **Removed the left-sidebar entry (per request)**: it no longer registers into DSH's sidebar foot (`sidebar.footer.action`), which crowded the rail above "Settings". The cross-root opener (`openScmPanel()` / `scmOpenListeners`) and the `SidebarFooterScmAction` component existed only for that and were deleted.
+- **Root cause of the duplicate**: `sessions.list.getSnapshot()` returns a `SessionListState` shaped `{ ids, byId, phase, subagentsByParent, jobsBySession }` — there is **no `current` field**. The empty-state gating read `snap.current`, always got `undefined`, so `hasActiveSession` was always false and the pinned entry rendered even in an active session, alongside the header one.
+- **Fix**: use DSH's own convention `retainedBy.mainView > 0` (as in ui-layout/DocumentTitle, ui-workspace/WorkspaceBrowser, ui-settings-general), via a new `activeMainSession(snap)` helper, with a fallback for older data lacking `retainedBy`. The two entries are now strictly mutually exclusive.
+- Tests: `tools/verify-entry-runtime.test.mjs` renders each registered entry with mocked session snapshots, asserting exactly one header entry across five states and that nothing renders outside the header (13 checks); mutation-tested.
+- Scope: `lib/client.js` (refresh), `README.md`. Version 1.22.0 → 1.22.1.
+
+### v1.22.0 (historical)
+**Fixed the empty-state button overlapping DSH's own controls**:
+
+- The pinned entry used `position: fixed; top: 8px; right: 12px`, intersecting DSH's sidebar controls in the conversation header's 30px title row (y≈10..40).
+- Deliberately avoided seats DSH owns: `conversation.session.header.corner` (a `single` slot held by ui-sidebar-right's ExpandButton) and `.leading` (held by ui-sidebar's HeaderLeadingControls), plus `sidebar.panellist` (ids must be real main-panel ids).
+- Added `tools/verify-entry-placement.test.mjs` and `tools/verify-entry-runtime.test.mjs`.
+- Scope: `lib/client.js` (refresh), `README.md`. Version 1.21.0 → 1.22.0.
+
+### v1.21.0 (historical)
 **Gitee CLI fully removed + the Gitee personal token moved to ②**:
 
 - **Background**: the Gitee CLI was never required — the plugin's Gitee features (create repo / push / clone / ②③) are driven by the **personal token (OpenAPI)** and **SSH public keys**, not the CLI binary; and on Windows its install often failed (ENOENT without npm.exe / EINVAL spawning npm.cmd) with a misleading "no usable package manager" error.
@@ -225,7 +293,7 @@ dsh plugin --profile web add link:$(pwd)
 - **Unchanged**: the Gitee platform itself, the personal-token storage (`~/.dsh/storages`, 0600), create/push/clone, and SSH-443 config all remain.
 - Scope: `lib/index.js` (restart dsh web), `lib/client.js` (refresh). Version 1.20.0 → 1.21.0.
 
-### v1.20.0 (current — historical note kept)
+### v1.20.0 (historical)
 ① Env Check gains a **Git check-update (Windows only)** (same interaction as gh/gitee):
 
 - **Installed Git rows show a「检查更新」button on Windows only**: the host compares the local `git --version` against the latest official stable Git; when an update exists it confirms via `window.confirm` and upgrades in one click (live progress dialog).
@@ -236,7 +304,7 @@ dsh plugin --profile web add link:$(pwd)
 - New `tool=git` branch on `POST /check-update` (returns `{ok, current, latest, hasUpdate}`).
 - Scope: `lib/index.js` (refresh/restart to apply), `lib/client.js` (refresh to apply). Version 1.19.0 → 1.20.0.
 
-### v1.19.0 (current — historical note kept)
+### v1.19.0 (historical)
 Extends the GitHub CLI download-source selector to **Windows** (previously Linux/macOS only):
 
 - **Windows now shows the「下载源」dropdown**: when gh is missing, ① Env Check on Windows renders the mirror selector too (defaults to the first mirror `gh-proxy.com`).
@@ -247,7 +315,7 @@ Extends the GitHub CLI download-source selector to **Windows** (previously Linux
 - **Fallback**: selecting「官网（慢）」or when the version lookup fails, Windows falls back to the system package manager (winget / choco / scoop) unchanged.
 - Scope: `lib/index.js` (refresh/restart to apply), `lib/client.js` (refresh to apply). Version 1.18.0 → 1.19.0. (Versions v1.15–v1.18 are covered in the Chinese README.)
 
-### v1.14.0 (current — historical note kept)
+### v1.14.0 (historical)
 Per your request the **⑤ "Submit PR" feature has been removed**:
 
 - **Front-end**: `lib/client.js` drops the whole `PrSection` (its render in the panel and the "⑤ Submit PR" mention in the panel intro), along with the now-unused `EN_DICT` PR keys.
@@ -296,7 +364,7 @@ This release focuses on the changed-files preview experience and Chinese-filenam
 - **No「旧版本」column for new files**: the side-by-side diff shows only the「新版本」column when the diff has no deletion rows (pure additions, e.g. new/untracked files); diffs with deletions keep the two-column comparison.
 - **Binary files show no「查看」button**: each changed file is sniffed (NUL-byte heuristic, the same one git uses) to decide whether its content can be previewed as text — binary files (images, executables, …) get no「查看」button (tooltip: "Binary file — text preview unavailable"); files without a working-tree copy (deleted, or staged-then-removed) are judged via `git diff --numstat` (`-\t-` marks binary).
 - **Chinese filename compatibility fix**: git's default `core.quotepath` prints Chinese paths as octal-escaped quoted strings (e.g. `"\346\270\270…md"`), which showed up garbled in the changes list and diff headers. Every git invocation now gets `-c core.quotepath=false` (raw UTF-8 paths), plus a defensive `parseGitPath()` unescaper applied to every path-parsing site — `status --porcelain`, `ls-files -z`, `diff --name-only`, and `git diff`/`git show` headers.
-- New regression test `tools/verify-cn-paths.test.mjs` (Chinese path parsing, text/binary viewability, new-file diff generation, deleted-file detection).
+- New regression test `tools/verify-cn-paths.test.mjs` (Chinese path parsing, text/binary viewability, new-file diff generation, deleted-file detection). (That file hardcodes `C:\Users\Administrator\workspace` and cannot run on this machine, so it was deleted in v1.24.0; the coverage is carried by `tools/verify-viewable-batch.test.mjs`.)
 
 ### v1.10.1 (history)
 - **Fix: the top-right「代码管理」button lingered even after dsh-better-sidebar was installed.** For the fallback entry (better-sidebar absent) the teardown handler was only wired for the ReactDOM fallback path — the slots path never stored it, so switching to the sidebar-Tab form left the header entry behind. The `slots.inject` disposer is now captured into `entryUnmount`, so switching to a Tab tears the header entry down correctly.
