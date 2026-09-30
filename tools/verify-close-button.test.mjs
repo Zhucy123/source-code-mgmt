@@ -80,21 +80,45 @@ check('the old full-viewport drawer overlay (inset: 0) is gone from the code', (
   )
 })
 
-// --- 2. the ✕ survives scrolling -------------------------------------------
-check('the drawer header is sticky so the ✕ cannot scroll out of reach', () => {
-  assert.match(code, /position:\s*"sticky",\s*top:\s*0,\s*zIndex:\s*2/, 'drawer header must be position: sticky; top: 0')
+// --- 2. the ✕ survives scrolling, WITHOUT floating over content ------------
+check('the drawer keeps the ✕ visible by structure, not by a floating header', () => {
+  // An earlier attempt made the header `position: sticky` with a background.
+  // That was wrong: a sticky row floats ABOVE the content, so its fill covered
+  // the text scrolling underneath (user report: "标题下方那条灰带把说明文字盖住了").
+  // The header must therefore be a plain fixed row and only the body scrolls.
+  // Scoped to ScmPanel: the diff viewer's own tab strip uses sticky legitimately.
+  const panelStart = code.indexOf('function ScmPanel(')
+  const panelEnd = code.indexOf('function panelStyle(')
+  assert.ok(panelStart > 0 && panelEnd > panelStart, 'ScmPanel not found')
+  const scmPanel = code.slice(panelStart, panelEnd)
+  assert.ok(
+    !/position:\s*"sticky"/.test(scmPanel),
+    'the drawer header must not be sticky again — a sticky row floats over the content and hides it',
+  )
+  assert.match(scmPanel, /const drawer = variant === "drawer"/, 'ScmPanel must branch on the drawer variant')
 
-  // Sticky only works if the header is a direct child of the scrolling box.
-  // The panel's own scroll container is the `panelStyle` root, so the header
-  // must be its first child — assert the ordering rather than trusting it.
+  // The drawer panel itself must NOT scroll; the body must.
   const panelIdx = code.indexOf('function panelStyle(')
-  const scroller = code.slice(panelIdx, panelIdx + 900)
-  assert.match(scroller, /overflow:\s*"auto"/, 'the drawer panel must remain the scroll container')
+  const drawerStyle = code.slice(panelIdx, panelIdx + 1400)
+  assert.match(drawerStyle, /overflow:\s*"hidden"/, 'the drawer panel must not be its own scroll container')
 
+  // The scrolling body must be a child of the panel root, after the header.
   const renderIdx = code.indexOf('h("div", { style: panelStyle(variant)')
   assert.ok(renderIdx > 0, 'panel root render call not found')
   const headIdx = code.indexOf('h("div", { style: headStyle }', renderIdx)
-  assert.ok(headIdx > renderIdx, 'the sticky header must be rendered inside the panel root')
+  const bodyIdx = code.indexOf('overflow: "auto", padding: "0 " + pad', renderIdx)
+  assert.ok(headIdx > renderIdx, 'the header must be rendered inside the panel root')
+  assert.ok(bodyIdx > headIdx, 'the scrolling body must follow the header inside the panel root')
+})
+
+check('the header carries no background fill that could hide content', () => {
+  // The header sits above the body in normal flow, so it needs no fill at all.
+  const headStyle = code.match(/const headStyle = \{[\s\S]*?\n\t\t\t\};/)
+  assert.ok(headStyle, 'headStyle not found')
+  assert.ok(
+    !/background/.test(headStyle[0]),
+    'headStyle must not paint a background — that is what covered the description text',
+  )
 })
 
 check('the tab variant keeps no close button (the host owns closing)', () => {
@@ -106,17 +130,15 @@ check('the tab variant keeps no close button (the host owns closing)', () => {
   )
 })
 
-check('the sticky header does not cover the resize handle', () => {
+check('the resize handle stays above the panel content', () => {
   // The handle sits at left: -3 with width 7, so its inner 4px overlaps the
-  // panel content. A sticky header at zIndex 2 would paint over that sliver in
-  // the header's vertical band, leaving a dead strip at the top of the handle.
+  // panel content. With the header no longer floating this is only a guard
+  // against a future overlay inside the panel claiming that sliver.
   const handle = code.match(/position:\s*"absolute",\s*top:\s*0,\s*bottom:\s*0,\s*left:\s*-3,\s*width:\s*7,[\s\S]{0,160}?zIndex:\s*(\d+)/)
   assert.ok(handle, 'resize handle style not found')
-  const handleZ = Number(handle[1])
-  const headZ = Number(code.match(/position:\s*"sticky",\s*top:\s*0,\s*zIndex:\s*(\d+)/)[1])
   assert.ok(
-    handleZ > headZ,
-    `resize handle zIndex (${handleZ}) must exceed the sticky header's (${headZ}), or its top sliver is unclickable`,
+    Number(handle[1]) >= 1,
+    'the resize handle must carry a z-index so panel content cannot swallow its inner sliver',
   )
 })
 

@@ -2,7 +2,7 @@
 
 > [English](README.en.md) | 中文
 
-> 版本：**v1.24.1**　|　更新日志见文末「[版本历史](#版本历史)」
+> 版本：**v1.24.2**　|　更新日志见文末「[版本历史](#版本历史)」
 
 > **界面语言跟随 DSH 设置实时切换**：面板与 host 端消息自动使用 DSH 的语言（设置 → 通用 → 语言），中文 ↔ 英文即时生效，无需重启。
 
@@ -239,17 +239,28 @@ dsh plugin --profile web add link:$(pwd)
 
 ## 版本历史
 
-### v1.24.1（当前）
+### v1.24.2（当前）
+**修复：面板顶部那条灰带盖住了说明文字（v1.24.1 引入的回归）**：
+
+- **现象**：打开「代码管理」后，标题「源代码管理」下方压着一条灰色横带，把「按顺序完成：①环境检查 → …」那行说明文字盖住/挤掉。
+- **根因**：v1.24.1 为让 `✕` 常驻，把标题行做成了 `position: sticky` 并给了它一层底色（`--dsw-alias-bg-layer-1`）。**sticky 行是浮在内容之上的**——它不会把后续内容推开，只是悬停在那里，于是底色正好压住从下面滚上来的文字；同时 `padding` 又让标题行多占高度，把说明文字整体下推。**用「浮层 + 底色」去解决「常驻可见」，方向本身就错了。**
+- **修复（结构性分离，而不是再调颜色/层级）**：
+  - `drawer` 下面板根节点改为 `overflow: hidden`（**面板本身不滚动**），标题行是**普通静态行**（`flex: 0 0 auto`，**不带任何底色**），只有它下面的 body 容器 `overflow: auto` 负责滚动。标题行在正常流里、不重叠内容，因此 `✕` 照样常驻可见，却**不可能**盖住任何文字——与原生侧边栏同一做法。
+  - `tab` 变体保持整块滚动（滚动语义交给宿主 dsh-better-sidebar），不受影响。
+- **回归测试**（`tools/verify-close-button.test.mjs`，8 项）相应重写：断言 `ScmPanel` 内**不得再出现 `position: "sticky"`**（断言范围限定在 `ScmPanel`——插件自己的 diff 查看器用 sticky 是**正确**的，不能误伤）、`headStyle` **不得带 `background`**、drawer 根节点必须是 `overflow: hidden`、滚动 body 必须排在标题行之后、`✕` 仍在且 tab 变体不渲染。
+- 变更范围：`lib/client.js`（**刷新页面即生效**）、`tools/verify-close-button.test.mjs`、`README.md`、`README.en.md`、`package.json`。版本号 1.24.1 → 1.24.2。
+
+### v1.24.1（历史）
 **修复：换成 DSH 官方桌面版后，右侧面板打开却关不掉**：
 
 - **现象**：桌面版里点「代码管理」能打开右侧面板，但右上角没有可点的关闭按钮，面板也退不出去。
 - **根因（不是按钮没渲染，是点不到）**：面板自带 `✕` 一直都在（`variant === "drawer"` 时渲染），但桌面壳会把 `--dsh-windows-titlebar-height: 40px` 写到 `documentElement` 上，而窗口控件（─ □ ✕）是 **OS 绘制的覆盖层**——它永远画在网页之上，**z-index 加到多大都没用**。面板原本是 `position: fixed; inset: 0`，它自己的 `✕` 正好落在 y≈20..42、x≈右边 20..50 那一带，被原生 `✕` 完整压住：按钮在 DOM 里、也响应 hover，就是收不到点击。网页版没有这条 OS 带，所以旧版一直没暴露。
 - **修复**（四处，都写进回归测试）：
   1. **面板整体下移**：外层遮罩由 `inset: 0` 改为 `top: var(--dsh-frame-chrome-top, var(--dsh-windows-titlebar-height, 0px))` + `right/bottom/left: 0`。优先用 DSH 自己发布的 `--dsh-frame-chrome-top`——它正是 DSH 用来「让模态遮罩不要画到 Windows 顶栏上」的量，**原生全屏时自动归零**，面板在全屏下仍能用满整屏；只发布旧变量的壳回退到 `--dsh-windows-titlebar-height`；普通浏览器两者皆无 → `0px`，与改造前**逐像素一致**。
-  2. **`✕` 常驻可见**：面板内容很长（①②③④⑤），普通滚动会把标题行连同 `✕` 一起带出视口，得一路滚回顶部才能关。现在 `drawer` 的标题行是 `position: sticky; top: 0`（负外边距抵消面板 padding，底色铺满整幅宽度），滚到任何位置 `✕` 都在视口内。`tab` 变体保持原样——它由宿主 dsh-better-sidebar 负责关闭，本就不渲染 `✕`。
+  2. **`✕` 常驻可见**：面板内容很长（①②③④⑤），普通滚动会把标题行连同 `✕` 一起带出视口，得一路滚回顶部才能关。**注**：本版最初用 `position: sticky` + 底色实现，方向是错的（sticky 是浮层，底色会盖住下面滚上来的文字）——已在 v1.24.2 改为「标题行固定 + 只有 body 滚动」的结构性分离。`tab` 变体保持原样——它由宿主 dsh-better-sidebar 负责关闭，本就不渲染 `✕`。
   3. **Esc 兜底**：面板打开时挂 `keydown` 监听，按 Esc 关闭（关闭/卸载时摘除）。桌面壳里任何贴边的网页控件都可能被 OS 覆盖层压住，键盘是永远可用的退路。
   4. **入口按钮兼作开关**：「代码管理」按钮由单向 `setOpen(true)` 改为 `toggleOpen`（再点一次收起，并加 `aria-expanded`）。它挂在 header 里、不在被窗口控件压住的那条带上，是最不容易失灵的关闭入口。
-- **新增回归测试** `tools/verify-close-button.test.mjs`（7 项）：断言 `SCM_CHROME_TOP` 的变量链与回退顺序、遮罩必须用 `top: SCM_CHROME_TOP`、`drawer` 里不得再出现 `inset: 0`（断言范围限定在 `HeaderScmAction` 内——插件自己的居中弹窗用整屏 mask 是**正确**的，不能误伤）、标题行 sticky 且 `✕` 在滚动容器内、`tab` 变体不渲染 `✕`、**拖拽条 zIndex 必须高于 sticky 标题行**（标题行吸顶后会盖住拖拽条内侧 4px，造成顶部一段拖不动的盲区；已把拖拽条从 `zIndex: 1` 抬到 `3`，并用变异测试验证过该断言会失败）、Esc 监听的挂载与清理、入口按钮必须是 toggle 而非单向 open。
+- **新增回归测试** `tools/verify-close-button.test.mjs`（7 项，v1.24.2 重写为 8 项）：断言 `SCM_CHROME_TOP` 的变量链与回退顺序、遮罩必须用 `top: SCM_CHROME_TOP`、`drawer` 里不得再出现 `inset: 0`（断言范围限定在 `HeaderScmAction` 内——插件自己的居中弹窗用整屏 mask 是**正确**的，不能误伤）、标题行 sticky 且 `✕` 在滚动容器内、`tab` 变体不渲染 `✕`、拖拽条 zIndex 必须高于当时的 sticky 标题行（标题行吸顶后会盖住拖拽条内侧 4px，造成顶部一段拖不动的盲区；已把拖拽条从 `zIndex: 1` 抬到 `3`，并用变异测试验证过该断言会失败）、Esc 监听的挂载与清理、入口按钮必须是 toggle 而非单向 open。
 - 变更范围：`lib/client.js`（**刷新页面即生效**，无需重启）、`tools/verify-close-button.test.mjs`（新增）、`README.md`、`README.en.md`、`package.json`。版本号 1.24.0 → 1.24.1。
 
 ### v1.24.0（历史）
