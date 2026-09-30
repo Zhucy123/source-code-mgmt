@@ -249,7 +249,7 @@ dsh plugin --profile web add link:$(pwd)
   2. **`✕` 常驻可见**：面板内容很长（①②③④⑤），普通滚动会把标题行连同 `✕` 一起带出视口，得一路滚回顶部才能关。现在 `drawer` 的标题行是 `position: sticky; top: 0`（负外边距抵消面板 padding，底色铺满整幅宽度），滚到任何位置 `✕` 都在视口内。`tab` 变体保持原样——它由宿主 dsh-better-sidebar 负责关闭，本就不渲染 `✕`。
   3. **Esc 兜底**：面板打开时挂 `keydown` 监听，按 Esc 关闭（关闭/卸载时摘除）。桌面壳里任何贴边的网页控件都可能被 OS 覆盖层压住，键盘是永远可用的退路。
   4. **入口按钮兼作开关**：「代码管理」按钮由单向 `setOpen(true)` 改为 `toggleOpen`（再点一次收起，并加 `aria-expanded`）。它挂在 header 里、不在被窗口控件压住的那条带上，是最不容易失灵的关闭入口。
-- **新增回归测试** `tools/verify-close-button.test.mjs`（6 项）：断言 `SCM_CHROME_TOP` 的变量链与回退顺序、遮罩必须用 `top: SCM_CHROME_TOP`、`drawer` 里不得再出现 `inset: 0`（断言范围限定在 `HeaderScmAction` 内——插件自己的居中弹窗用整屏 mask 是**正确**的，不能误伤）、标题行 sticky 且 `✕` 在滚动容器内、`tab` 变体不渲染 `✕`、Esc 监听的挂载与清理、入口按钮必须是 toggle 而非单向 open。
+- **新增回归测试** `tools/verify-close-button.test.mjs`（7 项）：断言 `SCM_CHROME_TOP` 的变量链与回退顺序、遮罩必须用 `top: SCM_CHROME_TOP`、`drawer` 里不得再出现 `inset: 0`（断言范围限定在 `HeaderScmAction` 内——插件自己的居中弹窗用整屏 mask 是**正确**的，不能误伤）、标题行 sticky 且 `✕` 在滚动容器内、`tab` 变体不渲染 `✕`、**拖拽条 zIndex 必须高于 sticky 标题行**（标题行吸顶后会盖住拖拽条内侧 4px，造成顶部一段拖不动的盲区；已把拖拽条从 `zIndex: 1` 抬到 `3`，并用变异测试验证过该断言会失败）、Esc 监听的挂载与清理、入口按钮必须是 toggle 而非单向 open。
 - 变更范围：`lib/client.js`（**刷新页面即生效**，无需重启）、`tools/verify-close-button.test.mjs`（新增）、`README.md`、`README.en.md`、`package.json`。版本号 1.24.0 → 1.24.1。
 
 ### v1.24.0（历史）
