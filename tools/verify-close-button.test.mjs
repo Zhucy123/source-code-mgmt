@@ -106,6 +106,20 @@ check('the tab variant keeps no close button (the host owns closing)', () => {
   )
 })
 
+check('the sticky header does not cover the resize handle', () => {
+  // The handle sits at left: -3 with width 7, so its inner 4px overlaps the
+  // panel content. A sticky header at zIndex 2 would paint over that sliver in
+  // the header's vertical band, leaving a dead strip at the top of the handle.
+  const handle = code.match(/position:\s*"absolute",\s*top:\s*0,\s*bottom:\s*0,\s*left:\s*-3,\s*width:\s*7,[\s\S]{0,160}?zIndex:\s*(\d+)/)
+  assert.ok(handle, 'resize handle style not found')
+  const handleZ = Number(handle[1])
+  const headZ = Number(code.match(/position:\s*"sticky",\s*top:\s*0,\s*zIndex:\s*(\d+)/)[1])
+  assert.ok(
+    handleZ > headZ,
+    `resize handle zIndex (${handleZ}) must exceed the sticky header's (${headZ}), or its top sliver is unclickable`,
+  )
+})
+
 // --- 3. Escape closes the panel --------------------------------------------
 check('Escape closes the open panel', () => {
   assert.match(code, /e\.key === "Escape"/, 'no Escape handler found')
