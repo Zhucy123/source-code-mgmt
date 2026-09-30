@@ -1,6 +1,6 @@
 # source-code-mgmt — DSH Source Code Management Plugin
 
-> Version: **v1.24.0**　|　中文版见 [README.md](README.md)
+> Version: **v1.24.1**　|　中文版见 [README.md](README.md)
 
 > **Bilingual UI, live**: the panel and host-side messages follow DSH's language setting (Settings → General → Language) — switching between 中文 and English takes effect instantly, no refresh or restart needed.
 
@@ -219,7 +219,20 @@ dsh plugin --profile web add link:$(pwd)
 
 ## Version history
 
-### v1.24.0 (current)
+### v1.24.1 (current)
+**Fix: on the official DSH desktop build the right-side panel opened but could not be closed**:
+
+- **Symptom**: in the desktop app, clicking「代码管理」opened the right-side panel, but there was no clickable close button and no way back out.
+- **Root cause (the button was rendered — it just could not be clicked)**: the panel's own `✕` was always there (rendered when `variant === "drawer"`), but the desktop shell writes `--dsh-windows-titlebar-height: 40px` onto `documentElement`, and the window controls (─ □ ✕) are an **OS-painted overlay** — they always draw above web content, and **no z-index can win against them**. The panel was `position: fixed; inset: 0`, so its `✕` landed at y≈20..42, x≈20..50 from the right edge — exactly underneath the native `✕`. The button was in the DOM and even hovered, but never received the click. The web build has no such OS strip, which is why this stayed hidden.
+- **Fix** (four parts, all covered by regression tests):
+  1. **Start the panel below the strip**: the overlay changed from `inset: 0` to `top: var(--dsh-frame-chrome-top, var(--dsh-windows-titlebar-height, 0px))` plus `right/bottom/left: 0`. It prefers DSH's own `--dsh-frame-chrome-top` — the very variable DSH publishes so modal masks stay off the Windows caption — which **resolves to 0 in native fullscreen**, so the panel still uses the full height there. Shells that only publish the older variable fall back to `--dsh-windows-titlebar-height`; a plain browser resolves the whole chain to `0px`, **pixel-identical to before**.
+  2. **Keep the `✕` on screen**: the panel is long (①②③④⑤), and ordinary scrolling carried the title row — and the `✕` with it — out of view, forcing a scroll back to the top to close. The `drawer` header is now `position: sticky; top: 0` (negative margins cancel the panel padding so its background spans the full width), so the `✕` stays in view at any scroll offset. The `tab` variant is unchanged: the dsh-better-sidebar host owns closing there and no `✕` is rendered.
+  3. **Escape as a fallback**: while the panel is open a `keydown` listener closes it on Esc (removed on close/unmount). In the desktop shell any edge-pinned web control can be covered by the OS overlay, and the keyboard is always available.
+  4. **The opener doubles as a toggle**: the「代码管理」button changed from a one-way `setOpen(true)` to `toggleOpen` (click again to collapse, with `aria-expanded`). It sits in the header rather than in the strip the OS controls cover, making it the most reliable close affordance of all.
+- **New regression test** `tools/verify-close-button.test.mjs` (6 checks): the `SCM_CHROME_TOP` variable chain and fallback order; the overlay must use `top: SCM_CHROME_TOP`; no `inset: 0` may return to the `drawer` (scoped to `HeaderScmAction` — the plugin's own centred modals legitimately use a full-viewport mask and must not be flagged); the header is sticky and the `✕` lives inside the scroll container; the `tab` variant renders no `✕`; the Esc listener is both attached and cleaned up; and the opener must toggle rather than only open.
+- Changed: `lib/client.js` (**refresh the page** to apply, no restart needed), `tools/verify-close-button.test.mjs` (new), `README.md`, `README.en.md`, `package.json`. Version 1.24.0 → 1.24.1.
+
+### v1.24.0 (history)
 **③ faster loading: batch the git calls (measured ~1.2s saved per load)**:
 
 - **Why a system proxy does not help**: push/pull/fetch go over **SSH** (`git@github.com:...`), and **OpenSSH ignores `HTTP_PROXY` / `HTTPS_PROXY` / `git http.proxy`** — verified with `ssh -G`. Those variables only affect **git-over-HTTPS**. So for an SSH remote, a system proxy cannot change the speed; that is a protocol fact, not a misconfiguration. Routing SSH through a proxy requires an explicit `ProxyCommand` (needs a helper like `ncat`/`connect`, absent here).

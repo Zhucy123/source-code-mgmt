@@ -2,7 +2,7 @@
 
 > [English](README.en.md) | 中文
 
-> 版本：**v1.24.0**　|　更新日志见文末「[版本历史](#版本历史)」
+> 版本：**v1.24.1**　|　更新日志见文末「[版本历史](#版本历史)」
 
 > **界面语言跟随 DSH 设置实时切换**：面板与 host 端消息自动使用 DSH 的语言（设置 → 通用 → 语言），中文 ↔ 英文即时生效，无需重启。
 
@@ -22,6 +22,10 @@
     - **横向**内缩 `right: 48px`，**让开空态 header 右上角已有的「右侧栏展开按钮」**：空态下 `.headerBlank .headerCorner` 带 `margin-left: auto`，把 ui-sidebar-right 的 ExpandButton（28×28 圆钮）顶到最右，其盒子位于视口右侧 **12px～40px**（`.header` 的 `padding-right: 28px` 减去 `.headerCorner` 的 `margin-right: -16px` 得到右缘 12px）。`48 = 40 + 8`（8px 与 header 内其它控件的间距一致），整个按钮落在圆钮左侧、互不相交。
 
   两处点击都打开同一个 **dsh-better-sidebar 外观的右侧集成面板**（内容放同一面板），并把主内容区往左推挤。
+
+  > **关闭方式**（三种，桌面版 / 网页版都可用）：面板右上角 **✕**（标题行 `position: sticky`，内容滚到哪都在视口内）、按 **Esc**、或再次点右上角「代码管理」按钮。
+  >
+  > 面板顶部会**让开窗口控件那条带**（`--dsh-frame-chrome-top`）：桌面壳里 ─ □ ✕ 是 **OS 绘制的覆盖层**，任何贴到右上角的网页按钮都会被它压住、点不到（v1.24.1 修的正是这个「打开后关不掉」），所以面板整体从该带**下方**开始；原生全屏时该变量归零，面板仍用满整屏。
 
   > **刻意不注册进 DSH 自带侧边栏**（`sidebar.footer.action`）——那个入口会挤在左边栏「设置」上方，与侧栏自身的项混在一起。
   >
@@ -235,7 +239,20 @@ dsh plugin --profile web add link:$(pwd)
 
 ## 版本历史
 
-### v1.24.0（当前）
+### v1.24.1（当前）
+**修复：换成 DSH 官方桌面版后，右侧面板打开却关不掉**：
+
+- **现象**：桌面版里点「代码管理」能打开右侧面板，但右上角没有可点的关闭按钮，面板也退不出去。
+- **根因（不是按钮没渲染，是点不到）**：面板自带 `✕` 一直都在（`variant === "drawer"` 时渲染），但桌面壳会把 `--dsh-windows-titlebar-height: 40px` 写到 `documentElement` 上，而窗口控件（─ □ ✕）是 **OS 绘制的覆盖层**——它永远画在网页之上，**z-index 加到多大都没用**。面板原本是 `position: fixed; inset: 0`，它自己的 `✕` 正好落在 y≈20..42、x≈右边 20..50 那一带，被原生 `✕` 完整压住：按钮在 DOM 里、也响应 hover，就是收不到点击。网页版没有这条 OS 带，所以旧版一直没暴露。
+- **修复**（四处，都写进回归测试）：
+  1. **面板整体下移**：外层遮罩由 `inset: 0` 改为 `top: var(--dsh-frame-chrome-top, var(--dsh-windows-titlebar-height, 0px))` + `right/bottom/left: 0`。优先用 DSH 自己发布的 `--dsh-frame-chrome-top`——它正是 DSH 用来「让模态遮罩不要画到 Windows 顶栏上」的量，**原生全屏时自动归零**，面板在全屏下仍能用满整屏；只发布旧变量的壳回退到 `--dsh-windows-titlebar-height`；普通浏览器两者皆无 → `0px`，与改造前**逐像素一致**。
+  2. **`✕` 常驻可见**：面板内容很长（①②③④⑤），普通滚动会把标题行连同 `✕` 一起带出视口，得一路滚回顶部才能关。现在 `drawer` 的标题行是 `position: sticky; top: 0`（负外边距抵消面板 padding，底色铺满整幅宽度），滚到任何位置 `✕` 都在视口内。`tab` 变体保持原样——它由宿主 dsh-better-sidebar 负责关闭，本就不渲染 `✕`。
+  3. **Esc 兜底**：面板打开时挂 `keydown` 监听，按 Esc 关闭（关闭/卸载时摘除）。桌面壳里任何贴边的网页控件都可能被 OS 覆盖层压住，键盘是永远可用的退路。
+  4. **入口按钮兼作开关**：「代码管理」按钮由单向 `setOpen(true)` 改为 `toggleOpen`（再点一次收起，并加 `aria-expanded`）。它挂在 header 里、不在被窗口控件压住的那条带上，是最不容易失灵的关闭入口。
+- **新增回归测试** `tools/verify-close-button.test.mjs`（6 项）：断言 `SCM_CHROME_TOP` 的变量链与回退顺序、遮罩必须用 `top: SCM_CHROME_TOP`、`drawer` 里不得再出现 `inset: 0`（断言范围限定在 `HeaderScmAction` 内——插件自己的居中弹窗用整屏 mask 是**正确**的，不能误伤）、标题行 sticky 且 `✕` 在滚动容器内、`tab` 变体不渲染 `✕`、Esc 监听的挂载与清理、入口按钮必须是 toggle 而非单向 open。
+- 变更范围：`lib/client.js`（**刷新页面即生效**，无需重启）、`tools/verify-close-button.test.mjs`（新增）、`README.md`、`README.en.md`、`package.json`。版本号 1.24.0 → 1.24.1。
+
+### v1.24.0（历史）
 **③ 加载提速：把「每个文件一次 git」改成批量调用（实测每次加载省 ~1.2s）**：
 
 - **先回答「为什么开代理没变快」**：push/pull/fetch 走的是 **SSH**（`git@github.com:...`），而 **OpenSSH 不使用 `HTTP_PROXY`/`HTTPS_PROXY`/`git http.proxy`**——已实测（`ssh -G` 在设了这些变量后不产生任何代理指令）。代理只对 **git-over-HTTPS** 生效。所以对 SSH 远端，开系统代理**不会**改变速度；这是协议决定的，不是配置问题。要让 SSH 走代理必须显式配 `ProxyCommand`（需要 `ncat`/`connect` 之类的辅助程序，本机没有）。
