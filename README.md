@@ -2,7 +2,7 @@
 
 > [English](README.en.md) | 中文
 
-> 版本：**v1.24.2**　|　更新日志见文末「[版本历史](#版本历史)」
+> 版本：**v1.24.3**　|　更新日志见文末「[版本历史](#版本历史)」
 
 > **界面语言跟随 DSH 设置实时切换**：面板与 host 端消息自动使用 DSH 的语言（设置 → 通用 → 语言），中文 ↔ 英文即时生效，无需重启。
 
@@ -239,7 +239,19 @@ dsh plugin --profile web add link:$(pwd)
 
 ## 版本历史
 
-### v1.24.2（当前）
+### v1.24.3（当前）
+**修复：面板打开后，窗口顶栏那一段出现明显色差（白条）**：
+
+- **现象**：打开「代码管理」后，窗口最顶部那条原生标题栏在面板上方变成**白色**，左半（正常内容上方）仍是原来的浅灰 `#f9fafb` —— 中间在面板左缘形成一条硬缝。
+- **根因（推挤的连带副作用）**：桌面壳的 40px 顶栏是由 `.BynINW_frame`（及其 `:before`）用 `--dsw-specific-sidebar-fill`（= `--dsw-static-neutral-bluish-50`，`#f9fafb`）画出来的，而 **frame 在 `#root` 里**。本插件为了让位，用 `.LAYOUT_CSS` 把 `#root` 收窄了 `panelW`：`#root { margin-right: var(--scm-push); width: calc(100% - var(--scm-push)) }`。**顶栏跟着 `#root` 一起被收窄**，于是在面板左缘戛然而止；面板上方那一段没人画，露出页面底色（`--dsw-alias-bg-layer-1` = `#ffffff`）。不是面板盖住了顶栏，而是**顶栏被推挤截断了**。
+- **修复**：在面板 portal 里补一条与顶栏**同高、同宽（面板宽）**的色带，用**同一个 token** `var(--dsw-specific-sidebar-fill, transparent)` 填充，顶栏于是横贯整个窗口宽度、看不出接缝。
+  - `pointerEvents: "none"` —— 这条带只负责上色，鼠标事件照旧穿透给底下的原生拖拽区域，**不改变顶栏原有的拖动行为**；
+  - 高度用 `SCM_CHROME_TOP`（普通浏览器下为 `0px` → 高度 0、整块不可见，与改造前一致）；原生全屏下同样归零，不会多出一条带；
+  - 拖拽改宽时它必须跟面板**同步改宽**（否则顶栏会随拖拽裂开一条缝）：`makeResizeHandler` 相应多接一个 `getChromeEl`，逐帧同时写面板与色带的 `width`。
+- **回归测试**（`tools/verify-close-button.test.mjs`，9 项，本次新增 1 项）：断言 portal 里必须存在这条带、用的是 `--dsw-specific-sidebar-fill`、高度等于 `SCM_CHROME_TOP`、`pointerEvents: "none"`、带 `ref` 且 `makeResizeHandler` 拿到了它（并用变异测试验证：去掉色带的背景后该断言确实失败）。
+- 变更范围：`lib/client.js`（**刷新页面即生效**）、`tools/verify-close-button.test.mjs`、`README.md`、`README.en.md`、`package.json`。版本号 1.24.2 → 1.24.3。
+
+### v1.24.2（历史）
 **修复：面板顶部那条灰带盖住了说明文字（v1.24.1 引入的回归）**：
 
 - **现象**：打开「代码管理」后，标题「源代码管理」下方压着一条灰色横带，把「按顺序完成：①环境检查 → …」那行说明文字盖住/挤掉。

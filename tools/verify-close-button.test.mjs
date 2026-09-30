@@ -121,6 +121,33 @@ check('the header carries no background fill that could hide content', () => {
   )
 })
 
+// --- 2b. the titlebar strip stays continuous across the panel ---------------
+check('the panel repaints the window titlebar strip that --scm-push narrowed', () => {
+  // `--scm-push` narrows #root, and the desktop frame (which paints the 40px
+  // strip) lives inside #root — so the strip stopped at the panel's left edge
+  // and the band above the panel showed the white page background instead.
+  // The portal must repaint that band with the shell's own token.
+  const start = code.indexOf('open ? ReactDOM.createPortal(')
+  const end = code.indexOf('function HeaderScmEntry()')
+  assert.ok(start > 0 && end > start, 'the drawer portal not found')
+  const portal = code.slice(start, end)
+
+  assert.match(
+    portal,
+    /background:\s*"var\(--dsw-specific-sidebar-fill,\s*transparent\)"/,
+    "the band above the panel must be repainted with --dsw-specific-sidebar-fill (the shell's own titlebar colour)",
+  )
+  assert.match(portal, /height:\s*SCM_CHROME_TOP/, 'the repainted band must be exactly the chrome height')
+  assert.match(portal, /pointerEvents:\s*"none"/, 'the band must not steal pointer events from the native drag region')
+
+  // It has to track the panel width, or dragging leaves a gap in the strip.
+  assert.match(portal, /ref:\s*chromeRef/, 'the band needs a ref so the resize drag can keep it in sync')
+  assert.ok(
+    /\(\)\s*=>\s*chromeRef\.current/.test(code),
+    'makeResizeHandler must be given the band element as well as the panel',
+  )
+})
+
 check('the tab variant keeps no close button (the host owns closing)', () => {
   // dsh-better-sidebar renders its own tab chrome; a second ✕ there is wrong.
   assert.match(

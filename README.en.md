@@ -1,6 +1,6 @@
 # source-code-mgmt — DSH Source Code Management Plugin
 
-> Version: **v1.24.2**　|　中文版见 [README.md](README.md)
+> Version: **v1.24.3**　|　中文版见 [README.md](README.md)
 
 > **Bilingual UI, live**: the panel and host-side messages follow DSH's language setting (Settings → General → Language) — switching between 中文 and English takes effect instantly, no refresh or restart needed.
 
@@ -219,7 +219,19 @@ dsh plugin --profile web add link:$(pwd)
 
 ## Version history
 
-### v1.24.2 (current)
+### v1.24.3 (current)
+**Fix: a visible colour seam appeared in the window titlebar once the panel opened**:
+
+- **Symptom**: with「代码管理」open, the native titlebar strip at the very top turned **white** above the panel, while the left half (above the normal content) stayed the usual light grey `#f9fafb` — a hard seam at the panel's left edge.
+- **Root cause (a side effect of the push)**: the desktop shell paints its 40px strip via `.BynINW_frame` (and its `:before`) using `--dsw-specific-sidebar-fill` (= `--dsw-static-neutral-bluish-50`, `#f9fafb`), and **that frame lives inside `#root`**. To make room, this plugin narrows `#root` by `panelW` (`#root { margin-right: var(--scm-push); width: calc(100% - var(--scm-push)) }`). **The strip narrowed along with `#root`**, so it stopped dead at the panel's left edge; nothing painted the band above the panel, exposing the page background (`--dsw-alias-bg-layer-1` = `#ffffff`). The panel was not covering the strip — the strip had been **cut short by the push**.
+- **Fix**: the panel portal now paints a band of the same height and width (panel width) filled with the **same token**, `var(--dsw-specific-sidebar-fill, transparent)`, so the titlebar runs the full window width with no seam.
+  - `pointerEvents: "none"` — the band only paints; pointer events still pass through to the native drag region, so **window dragging is unchanged**.
+  - Its height is `SCM_CHROME_TOP` (in a plain browser that resolves to `0px` → zero height, invisible, exactly as before; native fullscreen also zeroes it, so no stray band appears).
+  - It must resize **in step with the panel** during a drag (otherwise the strip tears open as you drag): `makeResizeHandler` now also takes a `getChromeEl` and writes both widths per frame.
+- **Regression test** (`tools/verify-close-button.test.mjs`, 9 checks; 1 added here): the band must exist in the portal, use `--dsw-specific-sidebar-fill`, have height `SCM_CHROME_TOP`, set `pointerEvents: "none"`, carry a `ref`, and be handed to `makeResizeHandler` (mutation-verified: removing the band's background makes the assertion fail).
+- Changed: `lib/client.js` (**refresh the page**), `tools/verify-close-button.test.mjs`, `README.md`, `README.en.md`, `package.json`. Version 1.24.2 → 1.24.3.
+
+### v1.24.2 (history)
 **Fix: a grey band at the top of the panel covered the description text (a regression introduced in v1.24.1)**:
 
 - **Symptom**: with「代码管理」open, a grey strip sat under the「源代码管理」heading and covered / displaced the "按顺序完成：①环境检查 → …" description line.
