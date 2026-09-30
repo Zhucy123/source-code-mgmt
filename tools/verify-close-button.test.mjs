@@ -139,12 +139,12 @@ check('the panel repaints the window titlebar strip that --scm-push narrowed', (
   )
   assert.match(portal, /height:\s*SCM_CHROME_TOP/, 'the repainted band must be exactly the chrome height')
   assert.match(portal, /pointerEvents:\s*"none"/, 'the band must not steal pointer events from the native drag region')
-
-  // It has to track the panel width, or dragging leaves a gap in the strip.
-  assert.match(portal, /ref:\s*chromeRef/, 'the band needs a ref so the resize drag can keep it in sync')
-  assert.ok(
-    /\(\)\s*=>\s*chromeRef\.current/.test(code),
-    'makeResizeHandler must be given the band element as well as the panel',
+  // Full width: it repaints over the native strip (same colour, a no-op on the
+  // left) and never depends on the panel width — so no gap while dragging.
+  assert.match(
+    portal,
+    /left:\s*0,\s*right:\s*0,\s*height:\s*SCM_CHROME_TOP/,
+    'the band must span the full window width, not the panel width',
   )
 })
 

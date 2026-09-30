@@ -1,6 +1,6 @@
 # source-code-mgmt — DSH Source Code Management Plugin
 
-> Version: **v1.24.3**　|　中文版见 [README.md](README.md)
+> Version: **v1.24.4**　|　中文版见 [README.md](README.md)
 
 > **Bilingual UI, live**: the panel and host-side messages follow DSH's language setting (Settings → General → Language) — switching between 中文 and English takes effect instantly, no refresh or restart needed.
 
@@ -219,7 +219,18 @@ dsh plugin --profile web add link:$(pwd)
 
 ## Version history
 
-### v1.24.3 (current)
+### v1.24.4 (current)
+**Fix: the white seam in the window titlebar was still there (v1.24.3's band only covered the panel's own width)**:
+
+- **Symptom**: after a full restart the seam persisted — the strip was still broken at the panel's left edge.
+- **Root cause**: the band added in v1.24.3 was `panelW` wide (same as the panel), but the seam is not confined to the panel's width — the panel width changes as you drag, so a band that follows it always leaves a segment unpainted.
+- **Fix**: the band now spans the **full window width** (`left: 0; right: 0`). The left half is the native titlebar already painted the same colour, so repainting it is a no-op; the right half fills the missing part. **It no longer depends on the panel width** — resizing or toggling the panel can never leave a gap in the strip. The `chromeRef`/`getChromeEl` width-sync added for the same purpose was removed (no longer needed).
+- **Regression test**: the band must be `left: 0; right: 0` full width (mutation-verified: reverting it to `panelW` width makes the assertion fail).
+- Changed: `lib/client.js` (desktop needs no action — hot reload), `tools/verify-close-button.test.mjs`, `README.md`, `README.en.md`, `package.json`. Version 1.24.3 → 1.24.4.
+
+### v1.24.3 (history)
+
+### v1.24.3 (history)
 **Fix: a visible colour seam appeared in the window titlebar once the panel opened**:
 
 - **Symptom**: with「代码管理」open, the native titlebar strip at the very top turned **white** above the panel, while the left half (above the normal content) stayed the usual light grey `#f9fafb` — a hard seam at the panel's left edge.
@@ -229,7 +240,7 @@ dsh plugin --profile web add link:$(pwd)
   - Its height is `SCM_CHROME_TOP` (in a plain browser that resolves to `0px` → zero height, invisible, exactly as before; native fullscreen also zeroes it, so no stray band appears).
   - It must resize **in step with the panel** during a drag (otherwise the strip tears open as you drag): `makeResizeHandler` now also takes a `getChromeEl` and writes both widths per frame.
 - **Regression test** (`tools/verify-close-button.test.mjs`, 9 checks; 1 added here): the band must exist in the portal, use `--dsw-specific-sidebar-fill`, have height `SCM_CHROME_TOP`, set `pointerEvents: "none"`, carry a `ref`, and be handed to `makeResizeHandler` (mutation-verified: removing the band's background makes the assertion fail).
-- Changed: `lib/client.js` (**refresh the page**), `tools/verify-close-button.test.mjs`, `README.md`, `README.en.md`, `package.json`. Version 1.24.2 → 1.24.3.
+- Changed: `lib/client.js` (**no action needed on the desktop app** — the host stat-polls every client bundle, default 500 ms, and hot-reloads the plugin over SSE as soon as the file changes; the plugin's React state is dropped, sessions are kept. In the web build a page refresh does it), `tools/verify-close-button.test.mjs`, `README.md`, `README.en.md`, `package.json`. Version 1.24.2 → 1.24.3.
 
 ### v1.24.2 (history)
 **Fix: a grey band at the top of the panel covered the description text (a regression introduced in v1.24.1)**:
