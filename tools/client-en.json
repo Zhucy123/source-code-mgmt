@@ -278,5 +278,6 @@
 "按顺序完成：①环境检查 → ②SSH 密钥与连接 → ③代码管理。推送会自动忽略 >100MB 的文件（": "Work through in order: ① Environment → ② SSH Key & Connection → ③ Code Management. Files over 100MB are auto-ignored on push (",
 " 限制）并说明原因。": " limit) with the reason shown.",
 "代码管理": "Code Management",
-"拖动调整面板宽度": "Drag to resize the panel"
+"拖动调整面板宽度": "Drag to resize the panel",
+"查看仓库状态、推送更改、SSH 密钥与发布": "Repo status, push changes, SSH keys and publishing"
 }

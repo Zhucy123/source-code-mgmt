@@ -2,36 +2,42 @@
 
 > [English](README.en.md) | 中文
 
-> 版本：**v1.24.4**　|　更新日志见文末「[版本历史](#版本历史)」
+> 版本：**v1.25.0**　|　更新日志见文末「[版本历史](#版本历史)」
 
 > **界面语言跟随 DSH 设置实时切换**：面板与 host 端消息自动使用 DSH 的语言（设置 → 通用 → 语言），中文 ↔ 英文即时生效，无需重启。
 
 > DSH Web GUI 源代码管理插件：一个「代码管理」面板把 **① 环境检查 → ② SSH 密钥与连接 → ③ 代码管理 → ④ 克隆仓库 → ⑤ 发布 npm 包** 全流程串起来，GitHub / Gitee 双平台通用。环境检查自动检测 Git / GitHub CLI / SSH，缺工具可一键安装（按平台自适应、尽量免 sudo；gh 支持镜像下载源加速，Windows 亦可用），并带「检查更新」跟进新版本。
 
-> 入口位置自适应：**已安装 [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) 时**，「代码管理」作为它侧边栏的一个新 Tab 页面出现；**未安装时**，「代码管理」入口出现在 **DSH 右上角**（有会话时放在「Session 日志」旁；无会话/新对话时钉在右上角，**与有会话时逐像素同高**），且**不会占用左边栏**。两种形态都打开同一个右侧集成面板（推挤主内容区）、复用同一套面板 UI。
+> **入口默认注册进 DSH 自带的右侧栏**（不再保留单独的按钮）：在侧边栏「开始」页上，「代码管理」是与 **工作区文件 / 新建终端 / 浏览器 / 壁纸引擎** 并列的**一张卡片**，点开即在该栏里以页面形式打开面板。老宿主自动降级：装了 [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) 时注册成它的侧边栏 Tab；两者都没有时（旧版宿主）才回退到**右上角**的 header 入口（有会话时放在「Session 日志」旁；无会话/新对话时钉在右上角，**与有会话时逐像素同高**）。**不会占用左边栏**。
 
 ## 功能
 
-集成入口（二选一，自动检测，无需手动切换）：
+集成入口（按可用性自动选择，无需手动切换；**任何时刻只有一个入口**）：
 
-- **已安装 dsh-better-sidebar**：「代码管理」注册为它侧边栏的一个**新 Tab 页面**，点击侧边栏 Tab 直接打开面板；
-- **未安装 dsh-better-sidebar**：入口只注册在会话 header 里（两处**严格互斥**，任何时刻只有一个「代码管理」可见）——
+- **DSH 自带右侧栏（默认，harness ≥ 0.1.5）**：「代码管理」作为侧边栏「开始」页（guide）上的**一张卡片** + 该栏里的**一个页面**。点卡片即在右侧栏打开面板（官方行为：`openTab(kind, { replaceTab: true })`，替换掉「开始」页本身，像浏览器起始页那样）。卡片顺序排在内置三张（工作区文件 10 / 新建终端 20 / 浏览器 30）与其它插件（壁纸引擎 100）之后 = **110**。
+  - **没有独立按钮**：座位 `sidebar.right.pane.tab` 存在即代表宿主自带右侧栏，此时插件**完全不注册** header 入口 —— 这正是「去掉单独按钮」的落点。
+  - 卡片标题/说明是**函数**（`title: () => t("代码管理")`），由宿主每次渲染时求值 ⇒ 切语言**无需重新注册**。
+  - 面板用 `variant: "tab"`：填满该栏、**不画自己的 ✕**（关闭由宿主的 tab 栏负责）。
+- **已安装 dsh-better-sidebar（旧宿主降级）**：「代码管理」注册为它侧边栏的一个**新 Tab 页面**，点击侧边栏 Tab 直接打开面板；
+- **两者都没有（旧宿主降级）**：入口只注册在会话 header 里（两处**严格互斥**，任何时刻只有一个「代码管理」可见）——
   - ① 有活跃（非空白）会话时：经 `conversation.session.header.utilities` 槽位放在「Session 日志」旁（同款胶囊、间距 8px 一致）；
   - ② 空白（新对话）/无会话空态时：经常驻的 `shell.overlay` 槽注册一个常驻按钮，**钉在右上角、且与「有会话时」那枚按钮完全同高**。
     - **纵向与有会话时对齐**：有会话时按钮在 header 的 utilities 行里，该行几何为 `.header` 的 `padding-top: 10px` + `.titleRow` 的 `min-height: 30px`（居中）⇒ 标题行占 y=10..40、中心 25px；按钮高 32px ⇒ top = `10 + (30 - 32)/2` = **9px**。空态按钮取同一个 9px，所以两种形态切换时按钮**不跳位**。桌面壳里再叠加 `--dsh-windows-titlebar-height`（普通浏览器为 0），写法是 `calc(var(--dsh-windows-titlebar-height, 0px) + 9px)`。
     - **横向**内缩 `right: 48px`，**让开空态 header 右上角已有的「右侧栏展开按钮」**：空态下 `.headerBlank .headerCorner` 带 `margin-left: auto`，把 ui-sidebar-right 的 ExpandButton（28×28 圆钮）顶到最右，其盒子位于视口右侧 **12px～40px**（`.header` 的 `padding-right: 28px` 减去 `.headerCorner` 的 `margin-right: -16px` 得到右缘 12px）。`48 = 40 + 8`（8px 与 header 内其它控件的间距一致），整个按钮落在圆钮左侧、互不相交。
 
-  两处点击都打开同一个 **dsh-better-sidebar 外观的右侧集成面板**（内容放同一面板），并把主内容区往左推挤。
+  降级入口点击都打开同一个 **dsh-better-sidebar 外观的右侧集成面板**（内容放同一面板），并把主内容区往左推挤。
 
-  > **关闭方式**（三种，桌面版 / 网页版都可用）：面板右上角 **✕**（标题行 `position: sticky`，内容滚到哪都在视口内）、按 **Esc**、或再次点右上角「代码管理」按钮。
+  > **座位「晚到」有宽限窗口**（600ms）：`sidebar.right.pane.tab` 座位属于另一个包（ui-sidebar-right），加载器不保证顺序。若座位比本插件晚声明，这段时间里**先不挂兜底按钮** —— 否则官方宿主上会先闪一个「代码管理」按钮、随后才被侧边栏卡片取代。窗口内座位出现 → 永远不挂；窗口耗尽仍没有 → 才按老宿主降级（老宿主本来就吃这条路径，晚 0.6s 出现按钮不可见）。全程零 I/O，只是一个计时器。
+
+  > **关闭方式**：右侧栏形态由宿主的 tab 栏负责（点 ✕ / 切页）；降级面板有三种 —— 面板右上角 **✕**（标题行固定不滚动，内容滚到哪都在视口内）、按 **Esc**、或再次点「代码管理」按钮。
   >
-  > 面板顶部会**让开窗口控件那条带**（`--dsh-frame-chrome-top`）：桌面壳里 ─ □ ✕ 是 **OS 绘制的覆盖层**，任何贴到右上角的网页按钮都会被它压住、点不到（v1.24.1 修的正是这个「打开后关不掉」），所以面板整体从该带**下方**开始；原生全屏时该变量归零，面板仍用满整屏。
+  > 降级面板顶部会**让开窗口控件那条带**（`--dsh-frame-chrome-top`）：桌面壳里 ─ □ ✕ 是 **OS 绘制的覆盖层**，任何贴到右上角的网页按钮都会被它压住、点不到（v1.24.1 修的正是这个「打开后关不掉」），所以面板整体从该带**下方**开始；原生全屏时该变量归零，面板仍用满整屏。
 
-  > **刻意不注册进 DSH 自带侧边栏**（`sidebar.footer.action`）——那个入口会挤在左边栏「设置」上方，与侧栏自身的项混在一起。
+  > **刻意不注册进 DSH 自带左边栏**（`sidebar.footer.action`）——那个入口会挤在左边栏「设置」上方，与侧栏自身的项混在一起。
   >
   > 也刻意不去抢 DSH 自己的**单占位**槽：`conversation.session.header.corner` 已被自带右侧栏开关（ui-sidebar-right 的 ExpandButton）占用，`conversation.session.header.leading` 被自带侧栏开关（ui-sidebar 的 HeaderLeadingControls）占用；`sidebar.panellist` 的每一项 id 必须是真实主面板 id（会交给 `layout.selectPanel`），本插件没有主面板，注册进去只会得到点不动的死按钮。
 
-> 检测只是激活时一次内存读取（`ctx.get('betterSidebar')`），零 I/O、零网络，不影响 DSH 启动速度；两种形态间自动切换。未安装 better-sidebar 时入口常驻右上角（有会话=Session 日志旁，空态=右上角常驻按钮，两者同高），空态/新对话也可见。
+> 检测只是激活时两次内存读取（座位声明 + `ctx.get('sidebarRightTabs')`），零 I/O、零网络，不影响 DSH 启动速度。
 
 面板分五步（①②③ 为核心三步，④⑤ 为新扩展板块，默认折叠按需展开）：
 
@@ -239,7 +245,39 @@ dsh plugin --profile web add link:$(pwd)
 
 ## 版本历史
 
-### v1.24.4（当前）
+### v1.25.0（当前）
+**变更：入口默认注册进 DSH 自带的右侧栏，「代码管理」不再是一个单独的按钮**：
+
+- **需求**：把插件默认注册进 DSH 的侧边栏，而不是保留右上角那个独立按钮。
+- **背景（先说清「侧边栏」指哪个）**：截图里被圈掉的是右上角那枚「代码管理」按钮；红圈标出的位置是右侧栏「开始」页上 **工作区文件 / 新建终端 / 浏览器 / 壁纸引擎** 那张卡片列表下面的空位。那四张卡片来自 DSH 自带右侧栏（ui-sidebar-right）的 **guide**（`sidebar.right.pane.tab` 座位 + `sidebarRightTabs.register({ guide })`），并不是 `sidebar.footer.action`（左边栏底部）——左边栏早在 v1.1.2 起就明确不碰。
+- **实现**：激活时 `slots.inject('sidebar.right.pane.tab', …)` —— **座位声明了就是这个宿主自带右侧栏**，回调跑没跑即天然的能力门（不嗅探版本号，少一个漂移源）。回调里：
+  - `ctx.get('sidebarRightTabs').register({ id: 'source-code-mgmt/sidebar', kind: 'source-code-mgmt', title: () => t('代码管理'), guide: [{ id: 'panel', order: 110, title, description, icon: RepoIcon }] })` —— 这张 guide 条目就是「开始」页上的卡片；
+  - `slots.register({ name: 'sidebar.right.pane.tab', key: 'source-code-mgmt/sidebar' }, () => h(ScmPanel, { variant: 'tab' }))` —— 卡片点开后在该栏里渲染的页面。**key 必须等于 tab 类型的 id**：宿主 `TabSlot` 用 `definition.id` 作 entryKey 派发 tab 本体，写错就会「卡片点开了但面板空白」。
+  - 卡片顺序 `order: 110`：内置三张是 10 / 20 / 30，壁纸引擎（dsh-plugin-wallpaper-engine）是 100，所以本卡片排在其后、落在列表末尾。
+  - `title` / `description` 是**函数**，宿主每次渲染都求值 ⇒ 切语言不需要重新注册（旧的 better-sidebar 路径因为收的是字符串，才需要 subscribe 后重注册）。
+- **「去掉单独按钮」的落点**：座位存在时**根本不注册** header 两处入口 —— 不是「注册了再隐藏」。分支顺序 ①官方右侧栏 → ②dsh-better-sidebar → ③header 兜底，先成立者独占入口。
+- **座位晚到的宽限窗口**：`sidebar.right.pane.tab` 属于另一个包，可能比本插件晚声明。新增 `SCM_FALLBACK_GRACE_MS = 600`：这段窗口内先不挂兜底按钮（否则官方宿主上会先闪一个按钮再被卡片取代），窗口内座位出现 → 永远不挂，窗口耗尽才降级。全程零 I/O。
+- **服务晚到**：座位声明了 ≠ `sidebarRightTabs` 服务已就绪，故 `ctx.get` 短轮询（250ms × 40 ≈ 10s）后才放弃并回落 ③；tab 本体注册包在 `ctx.effect` 里，让 DSH 在插件卸载时自动注销（避免 fiber 已 dispose 时抛 `INACTIVE_EFFECT`）。
+- **老宿主不受影响**：装 dsh-better-sidebar 的走 ②（原逻辑不动）；两者都没有的走 ③（header 两处入口的原几何、互斥判定全部保留）。
+- **测试**：开发期用 4 个针对性回归文件覆盖本条改动 —— `verify-entry-runtime.test.mjs`（32 项，三段分支 + 卡片形状 + 图标尺寸 + 流体布局 + 卸载清理）、`verify-sidebar-entry.test.mjs`（16 项，「忠实宿主模型」：座位按宣告纪元重跑注入、keyed 座位拒绝重复 key、`ctx.effect` 按注入作用域回收、卸载按 LIFO / FIFO 两种顺序都验、注册抛异常路径，以及「兜底只能从路由里挂」的结构断言）、`verify-sidebar-adversarial.test.mjs`（16 项对抗式：能不能让官方宿主冒出独立按钮 / 能不能把用户搞成「零入口」）、`verify-sidebar-postfix.test.mjs`（3 项，独立复核者所写）。**这些测试文件已在本版发布前删除**（见下方「变更范围」），此处保留它们的结论作为改动依据的记录。
+- **独立复核（本轮最有价值的部分）**：由一位独立验证者对照真实 `app.asar` 逐条核对宿主契约（座位名/guide 排序/`entryKey = definition.id`/图标 size 22|26/`openTab(kind,{replaceTab:true})`/无 `patterns` 也能按 kind 打开/`keepMounted` 确实有语义），并**用对抗用例查出 4 个真实缺陷**，随后全部修掉：
+  1. **两个入口并存**：座位晚于本插件声明、且装了 dsh-better-sidebar 时，官方卡片会把 ② 的 Tab 也留着 —— 交接时只拆了 header 兜底，没拆 ②。修法：拆出 `betterEntryActive`（入口归属）与 `hasBetterSidebar`（是否安装，面板据此隐藏自带 Git 工作流）两个概念，官方成功路径同时 `teardownBetterTab()`。
+  2. **插件彻底不可达**：座位被宿主收回（自身重载）时，清理路径带着 `stoppedByHost=true`，恢复逻辑被跳过 ⇒ 一个入口都不剩。修法：座位回收不再设该标记，改为走统一的 `routeToFallback()` 恢复；`stoppedByHost` 只留给「插件卸载」与「② 已接管」。
+  3. **重试阶梯其实只覆盖 5 秒**：刻度被当成「距 apply 的绝对延时」而非「间隔」，`[500,500,750,1000,1500,2000,3000,5000×7]` 因此挤在头 5s 内烧完（注释却写「约 44s」）。后果：官方座位在、服务 10s 后才发布的宿主永远停在兜底按钮上。修法：改为累加调度（`retryAt += interval`，末级 ≈44s），并让重试在服务真正就绪时重新尝试官方注册。
+  4. **服务超时后无法恢复**：`officialGaveUp` 曾被当作永久放弃。修法：它只表示「这一轮 40×250ms 探测结束」，重试阶梯看到服务已就绪会把官方卡片换上、拆掉兜底。
+  另修一处口径错误：`installHeaderFallback` 原本用 `hasBetterSidebar` 当门，而该标记在官方入口赢下后仍为 true ⇒ 兜底永远挂不上（与缺陷 2 同类的不可达）。
+- **第二轮复核又抓出 2 个问题（都已修）**：
+  5. **注册抛异常时会多出一个入口**：官方注册被拒（宿主 id 撞车时 `tabs.register` 会抛）的 catch 分支**直接**调 `installHeaderFallback()`，绕过了「② 已接管入口」的判断 —— 若此刻 ② 的 Tab 正挂着，屏幕上就是「Tab + header 按钮」两个入口。修法：该分支改走 `routeToFallback(true)`。（第一轮我曾以为 `installHeaderFallback` 里的 `betterEntryActive` 门是冗余防御，**这个判断是错的**：它在「抛异常」这条路径上是唯一的拦截点。）
+  6. **死状态**：`officialGaveUp` 在改成「非永久」之后**所有读取都被移除**，只剩写入 ⇒ 是误导下一个读者的死变量（相关注释还在描述已不存在的门）。修法：整个删除，重入只由 `officialCleanup`/`officialInstalled` 两个条件表达。
+- **有界窗口的精确边界**：独立复核实测，服务最晚约 **54s** 出现的宿主仍能升到官方卡片（50s 可升、54s 不可）—— 因为 44.25s 的最后一级会再起一轮 40×250ms 探测。这是刻意保留的有界窗口，不是缺陷。
+- **第二轮变异测试**：独立复核跑了 10 个变异体，9 个被杀；唯一存活的正是上面的死状态（据此删除）。我这边补了「注册抛异常」路径的专项用例：单独改任一门都会被另一门掩盖，**双变异**（catch 直调兜底 + 拆掉 `betterEntryActive` 门）下用例确实失败 —— 说明该不变量被测到。
+- **第三轮复核**：独立复核确认死状态已清除、注释无残留、行为不变（18/18 × 两种卸载顺序；1000 条随机事件序列下「同时存在的入口数」恒为 1、注册表 0 违规），并逐条攻击了抛异常路径（不会零入口 / 不会重复注册 / 不会半个注册 / 无泄漏定时器）。另把「服务最晚多久出现仍能升级」实测到 **53s 可、54s 不可**（与代码注释、README 一致）。它还诚实披露了自己两个测试夹 bug（`ctx.effect` 归属与 `carriers()` 短路），并复跑了受影响结论。
+- **补上最后一处覆盖缺口**：前两轮里 `installHeaderFallback` 的 `betterEntryActive` 门与「catch 走路由」这两处，**单独**改任一处都无法从行为上观察到（路由先拦住）。除了保留双变异用例，另加一条**结构断言**：全文件里 `installHeaderFallback(` 只能有 **1 处**调用、且必须在 `routeToFallback` 内部 —— 这样将来有人在别处直调（正是第二轮那个重复入口 bug 的形态）会立刻失败。实测：单独把 catch 改回直调，这条断言即失败。
+- **变异测试**：上述每条不变量都做了变异验证（去掉宽限窗口 / 卡片 order 提前 / body key 与 id 不一致 / better-sidebar 抢在官方前 / 去掉 ② 交接拆除 / 座位回收恢复被阻断 / 阶梯改回绝对延时 / 停止重试升级 / 注册抛异常路径绕过路由 → 对应用例均失败）。
+- **本轮之后清理**：按用户要求，本插件的**测试文件已全部删除**（14 个 `*.test.mjs` + `smoke-test.mjs` + `verify-en-dict.mjs`）。保留 `tools/` 下的 **i18n 工具链**（`i18n-apply.mjs`、`i18n-extract.mjs`、`client-en.json`、`host-en.json`）—— 它们是生成 `lib/client.js` 内联英文词典的脚本与数据源，删掉后词典就只能手改。上面的测试结论与变异测试结果作为本轮改动的**历史依据**保留。
+- 变更范围：`lib/client.js`（**桌面版无需操作，自动热重载**；host 端未改）、`tools/client-en.json`、`README.md`、`README.en.md`、`package.json`，以及删除 `tools/` 下 15 个测试文件。版本号 1.24.4 → 1.25.0（新功能用次版本号）。
+
+### v1.24.4（历史）
 **修复：面板打开后，窗口顶栏仍然有一条白缝（v1.24.3 的补带只补了面板那一段）**：
 
 - **现象**：重启后白缝依旧 —— 顶栏在面板左缘仍是断开的。
@@ -338,6 +376,8 @@ dsh plugin --profile web add link:$(pwd)
 > - `tools/verify-entry-runtime.test.mjs` —— 在模拟 cordis 运行时里**真实执行 `apply(ctx)`**、并用模拟 session 快照**真实渲染**每个注册项，验证两个分支与入口互斥（13 项）。
 >
 > 运行：`node tools/verify-entry-placement.test.mjs` / `node tools/verify-entry-runtime.test.mjs`
+>
+> ⚠️ **以上测试文件已在 v1.25.0 删除**（用户要求清理插件目录），下面各历史版本里提到的测试文件同样已不存在；当时的结论保留作改动依据。
 
 ### v1.22.3（历史）
 **空态入口让开右上角的「右侧栏展开按钮」（修掉横向重叠）**：
